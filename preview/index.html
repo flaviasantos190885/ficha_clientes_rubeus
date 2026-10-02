@@ -6,17 +6,6 @@
 <style>body{max-width:760px;margin:0 auto;padding:0 16px 40px;background:#fff}
 button{margin-top:16px;padding:10px 24px;background:#12857f;color:#fff;border:0;border-radius:4px}</style>
 </head><body><form onsubmit="return false">
-<div class="bloco-html"><div class="fc-faixa"></div>
-<div class="fc-cabecalho">
-  <!-- Para usar o logo oficial: troque o <span> por <img src="URL_DO_LOGO" alt="Rubeus"> -->
-  <span class="fc-logo">Rubeus</span>
-  <a class="fc-site" href="https://rubeus.com.br" target="_blank" rel="noopener">rubeus.com.br</a>
-</div>
-<h1 class="fc-titulo-ficha">Ficha cadastral</h1>
-<p class="fc-subtitulo-ficha">Preencha os dados abaixo para a formalização do contrato.</p>
-</div>
-<div class="bloco-html"><h2 class="fc-secao">Dados cadastrais do cliente</h2>
-</div>
 <div class="form-group"><label for="c1">Nome</label><input id="c1" name="c1" type="text"></div>
 <div class="form-group"><label for="c2">CNPJ</label><input id="c2" name="c2" type="text"></div>
 <div class="form-group"><label for="c3">Endereço sede completo</label><input id="c3" name="c3" type="text"></div>
@@ -24,45 +13,22 @@ button{margin-top:16px;padding:10px 24px;background:#12857f;color:#fff;border:0;
 <div class="form-group"><label for="c5">Inscrição Municipal</label><input id="c5" name="c5" type="text"></div>
 <div class="form-group"><label for="c6">Faturamento bruto anual¹</label><select id="c6" name="c6"><option>Selecione</option><option>Até R$1M</option><option>De R$1M a R$10M</option><option>De R$10M a R$50M</option><option>De R$50M a R$100M</option><option>Acima de R$100M</option></select></div>
 <div class="form-group"><label for="c7">Regime de Tributação</label><select id="c7" name="c7"><option>Selecione</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>Imune / Isento</option></select></div>
-<div class="bloco-html"><h2 class="fc-secao">Responsável pelo projeto <small>(Contato principal)</small></h2>
-</div>
 <div class="form-group"><label for="c8">Responsável pelo projeto - Nome</label><input id="c8" name="c8" type="text"></div>
 <div class="form-group"><label for="c9">Responsável pelo projeto - E-mail</label><input id="c9" name="c9" type="email"></div>
 <div class="form-group"><label for="c10">Responsável pelo projeto - CPF</label><input id="c10" name="c10" type="text"></div>
 <div class="form-group"><label for="c11">Responsável pelo projeto - Telefone</label><input id="c11" name="c11" type="tel"></div>
-<div class="bloco-html"><h2 class="fc-secao">Representante(s) legal(is) <small>(responsável(is) pela assinatura)</small></h2>
-</div>
 <div class="form-group"><label for="c12">Representante legal - Nome</label><input id="c12" name="c12" type="text"></div>
 <div class="form-group"><label for="c13">Representante legal - E-mail</label><input id="c13" name="c13" type="email"></div>
 <div class="form-group"><label for="c14">Representante legal - CPF</label><input id="c14" name="c14" type="text"></div>
 <div class="form-group"><label for="c15">Representante legal - Telefone</label><input id="c15" name="c15" type="tel"></div>
-<div class="bloco-html"><h2 class="fc-secao">Testemunha(s)</h2>
-</div>
 <div class="form-group"><label for="c16">Testemunha - Nome</label><input id="c16" name="c16" type="text"></div>
 <div class="form-group"><label for="c17">Testemunha - E-mail</label><input id="c17" name="c17" type="email"></div>
 <div class="form-group"><label for="c18">Testemunha - CPF</label><input id="c18" name="c18" type="text"></div>
 <div class="form-group"><label for="c19">Testemunha - Telefone</label><input id="c19" name="c19" type="tel"></div>
-<div class="bloco-html"><h2 class="fc-secao">Responsável financeiro <small>(recebimento de NFs)</small></h2>
-</div>
 <div class="form-group"><label for="c20">Responsável financeiro - Nome</label><input id="c20" name="c20" type="text"></div>
 <div class="form-group"><label for="c21">Responsável financeiro - E-mail</label><input id="c21" name="c21" type="email"></div>
 <div class="form-group"><label for="c22">Responsável financeiro - Telefone</label><input id="c22" name="c22" type="tel"></div>
-<div class="bloco-html"><h2 class="fc-secao">Informações gerais</h2>
-<div class="fc-info">
-  <p>– Se ocorrer qualquer tipo de alteração cadastral, informe à Rubeus.</p>
-  <p>– As informações são de uso estritamente confidencial, protegidas pelos parâmetros da legislação vigente.
-     Acesse a nossa <a href="https://rubeus.com.br/politica-de-privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>.</p>
-  <p>– A responsabilidade pelo preenchimento é exclusiva do declarante.</p>
-</div>
-</div>
 <div class="form-group"><label for="c23">Observações</label><textarea id="c23" name="c23"></textarea></div>
 <div class="form-group"><label><input type="checkbox" name="aceite"> Declaro que as informações são verdadeiras.</label></div>
 <button type="submit">Enviar</button>
-<div class="bloco-html"><p class="fc-nota"><span class="fc-asterisco">1</span> A estrutura de atendimento da Rubeus é organizada pelo porte do cliente, assim, a informação sobre faturamento bruto anual é utilizada restrita e exclusivamente para melhor atender as necessidades de cada cliente.</p>
-<div class="fc-rodape">
-  <div><span class="fc-ico">&#9742;</span><span>SP: (11) 3586-4784<br>BH: (31) 3514-7811</span></div>
-  <div><span class="fc-ico">@</span><span>contato@rubeus.com.br</span></div>
-  <div><span class="fc-ico">&#9906;</span><span>Praça João Pinheiro, 30<br>Centro, 36880-043 - Muriaé/MG</span></div>
-</div>
-</div>
 </form><script src="../js/body.js"></script></body></html>

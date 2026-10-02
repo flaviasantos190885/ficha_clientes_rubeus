@@ -1,27 +1,26 @@
 """Gera preview/index.html: simula o formulário do Rubeus (estrutura genérica
-label + input) com os blocos HTML, o CSS e o JS do projeto, para testar
+label + input, só os campos) com o CSS e o JS do projeto, para testar
 localmente. Uso: python3 ferramentas/gerar-preview.py"""
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-blocos = {p.name[:2]: p.read_text(encoding="utf-8") for p in sorted((RAIZ / "html").glob("*.html"))}
 
 FAIXAS = ["Até R$1M", "De R$1M a R$10M", "De R$10M a R$50M", "De R$50M a R$100M", "Acima de R$100M"]
 REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Imune / Isento"]
 
 ESTRUTURA = [
-    ("02", [("Nome", "text"), ("CNPJ", "text"), ("Endereço sede completo", "text"),
+    ("dados", [("Nome", "text"), ("CNPJ", "text"), ("Endereço sede completo", "text"),
             ("Inscrição Estadual", "text"), ("Inscrição Municipal", "text"),
             ("Faturamento bruto anual¹", FAIXAS), ("Regime de Tributação", REGIMES)]),
-    ("03", [("Responsável pelo projeto - Nome", "text"), ("Responsável pelo projeto - E-mail", "email"),
+    ("secao", [("Responsável pelo projeto - Nome", "text"), ("Responsável pelo projeto - E-mail", "email"),
             ("Responsável pelo projeto - CPF", "text"), ("Responsável pelo projeto - Telefone", "tel")]),
-    ("04", [("Representante legal - Nome", "text"), ("Representante legal - E-mail", "email"),
+    ("secao", [("Representante legal - Nome", "text"), ("Representante legal - E-mail", "email"),
             ("Representante legal - CPF", "text"), ("Representante legal - Telefone", "tel")]),
-    ("05", [("Testemunha - Nome", "text"), ("Testemunha - E-mail", "email"),
+    ("secao", [("Testemunha - Nome", "text"), ("Testemunha - E-mail", "email"),
             ("Testemunha - CPF", "text"), ("Testemunha - Telefone", "tel")]),
-    ("06", [("Responsável financeiro - Nome", "text"), ("Responsável financeiro - E-mail", "email"),
+    ("secao", [("Responsável financeiro - Nome", "text"), ("Responsável financeiro - E-mail", "email"),
             ("Responsável financeiro - Telefone", "tel")]),
-    ("07", [("Observações", "textarea")]),
+    ("secao", [("Observações", "textarea")]),
 ]
 
 
@@ -36,15 +35,13 @@ def campo(i, label, tipo):
     return f'<div class="form-group"><label for="c{i}">{label}</label>{ctrl}</div>'
 
 
-partes, i = [f'<div class="bloco-html">{blocos["01"]}</div>'], 0
-for bloco, campos in ESTRUTURA:
-    partes.append(f'<div class="bloco-html">{blocos[bloco]}</div>')
+partes, i = [], 0
+for _, campos in ESTRUTURA:
     for label, tipo in campos:
         i += 1
         partes.append(campo(i, label, tipo))
 partes.append('<div class="form-group"><label><input type="checkbox" name="aceite"> Declaro que as informações são verdadeiras.</label></div>')
 partes.append('<button type="submit">Enviar</button>')
-partes.append(f'<div class="bloco-html">{blocos["08"]}</div>')
 
 html = f"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">

@@ -1,7 +1,7 @@
 /*
  * Ficha Cadastral Rubeus — CSS
  * Cole no bloco "CSS" da Edição avançada.
- * As classes .fc-* são colocadas pelo js/body.js; as dos blocos HTML já vêm prontas.
+ * As classes .fc-* e os blocos de texto são criados pelo js/body.js.
  */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
 
@@ -18,7 +18,8 @@
 
 .fc-ficha body { font-family: 'Poppins', Arial, sans-serif; color: var(--fc-texto); }
 
-/* ---------- Cabeçalho / rodapé (blocos HTML) ---------- */
+/* ---------- Blocos criados pelo JS (cabeçalho, títulos, rodapé) ---------- */
+.fc-bloco { grid-column: 1 / -1; flex: 0 0 100%; width: 100%; }
 .fc-faixa {
   height: 8px; margin-bottom: 24px;
   background: linear-gradient(90deg, var(--fc-verde) 0 30%, transparent 30% 40%, var(--fc-vermelho) 40% 70%, transparent 70% 80%, var(--fc-verde) 80%);

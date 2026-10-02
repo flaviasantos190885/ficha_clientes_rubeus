@@ -8,7 +8,10 @@
  *   2. encurta o rótulo exibido: "Responsável pelo projeto - Nome" vira "Nome"
  *      (o nome completo continua no Rubeus, só muda o texto na tela);
  *   3. aplica máscara em CPF, CNPJ, telefone e CEP (detectados pelo rótulo)
- *      e avisa quando CPF/CNPJ é inválido.
+ *      e avisa quando CPF/CNPJ é inválido;
+ *   4. cria o cabeçalho, os títulos de seção, as "Informações gerais" e o
+ *      rodapé (não precisa de blocos HTML no editor). Os textos estão em
+ *      BLOCOS / RODAPE logo abaixo.
  * Roda de novo sozinho se o Rubeus redesenhar o formulário.
  */
 (function () {
@@ -23,6 +26,45 @@
     { teste: /\bcep\b/i, tipo: 'cep' },
     { teste: /telefone|celular|whats/i, tipo: 'telefone' }
   ];
+
+  function titulo(texto, detalhe) {
+    return '<h2 class="fc-secao">' + texto + (detalhe ? ' <small>' + detalhe + '</small>' : '') + '</h2>';
+  }
+
+  // "antes": rótulo (original, completo) do campo que inicia a seção; 'primeiro' = primeiro campo do form
+  var BLOCOS = [
+    { antes: 'primeiro', html:
+        '<div class="fc-faixa"></div>' +
+        '<div class="fc-cabecalho">' +
+          // para usar o logo oficial troque o <span> por <img src="URL_DO_LOGO" alt="Rubeus">
+          '<span class="fc-logo">Rubeus</span>' +
+          '<a class="fc-site" href="https://rubeus.com.br" target="_blank" rel="noopener">rubeus.com.br</a>' +
+        '</div>' +
+        '<h1 class="fc-titulo-ficha">Ficha cadastral</h1>' +
+        '<p class="fc-subtitulo-ficha">Preencha os dados abaixo para a formalização do contrato.</p>' +
+        titulo('Dados cadastrais do cliente') },
+    { antes: /^Responsável pelo projeto\s/i, html: titulo('Responsável pelo projeto', '(Contato principal)') },
+    { antes: /^Representante/i, html: titulo('Representante(s) legal(is)', '(responsável(is) pela assinatura)') },
+    { antes: /^Testemunha/i, html: titulo('Testemunha(s)') },
+    { antes: /^Responsável financeiro/i, html: titulo('Responsável financeiro', '(recebimento de NFs)') },
+    { antes: /^Observa/i, html:
+        titulo('Informações gerais') +
+        '<div class="fc-info">' +
+          '<p>– Se ocorrer qualquer tipo de alteração cadastral, informe à Rubeus.</p>' +
+          '<p>– As informações são de uso estritamente confidencial, protegidas pelos parâmetros da legislação vigente. ' +
+          'Acesse a nossa <a href="https://rubeus.com.br/politica-de-privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>.</p>' +
+          '<p>– A responsabilidade pelo preenchimento é exclusiva do declarante.</p>' +
+        '</div>' }
+  ];
+
+  var RODAPE =
+    '<p class="fc-nota"><span class="fc-asterisco">1</span> A estrutura de atendimento da Rubeus é organizada pelo porte do cliente, ' +
+    'assim, a informação sobre faturamento bruto anual é utilizada restrita e exclusivamente para melhor atender as necessidades de cada cliente.</p>' +
+    '<div class="fc-rodape">' +
+      '<div><span class="fc-ico">&#9742;</span><span>SP: (11) 3586-4784<br>BH: (31) 3514-7811</span></div>' +
+      '<div><span class="fc-ico">@</span><span>contato@rubeus.com.br</span></div>' +
+      '<div><span class="fc-ico">&#9906;</span><span>Praça João Pinheiro, 30<br>Centro, 36880-043 - Muriaé/MG</span></div>' +
+    '</div>';
 
   function digitos(v) { return (v || '').replace(/\D/g, ''); }
 
@@ -190,6 +232,38 @@
         }
       }
     });
+    inserirBlocos();
+  }
+
+  function criarBloco(id, html) {
+    var div = document.createElement('div');
+    div.className = 'fc-bloco';
+    div.setAttribute('data-fc-bloco', id);
+    div.innerHTML = html;
+    return div;
+  }
+
+  function inserirBlocos() {
+    var linhas = document.querySelectorAll('.fc-linha');
+    if (!linhas.length) return;
+    BLOCOS.forEach(function (b, i) {
+      if (document.querySelector('[data-fc-bloco="' + i + '"]')) return;
+      var alvo = null;
+      if (b.antes === 'primeiro') alvo = linhas[0];
+      else {
+        for (var j = 0; j < linhas.length && !alvo; j++) {
+          var r = linhas[j].querySelector('.fc-rotulo');
+          if (r && b.antes.test(r.dataset.fcOriginal || '')) alvo = linhas[j];
+        }
+      }
+      if (alvo) alvo.parentNode.insertBefore(criarBloco(i, b.html), alvo);
+    });
+    if (!document.querySelector('[data-fc-bloco="rodape"]')) {
+      var ultima = linhas[linhas.length - 1];
+      var form = ultima.closest('form');
+      var ref = form || ultima;
+      ref.parentNode.insertBefore(criarBloco('rodape', RODAPE), ref.nextSibling);
+    }
   }
 
   var agendado = null;

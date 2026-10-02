@@ -3,39 +3,34 @@
 Recria a "Ficha Cadastral Rubeus" (antes em .docx) dentro do **Modelo de formulário** do Rubeus.
 
 **Como funciona:** os campos são os campos nativos do Rubeus, arrastados no editor. Assim o envio,
-a validação e a gravação no CRM continuam sendo do Rubeus. O visual de tabela da ficha
-(rótulo | campo), as máscaras e os títulos de seção ficam por conta dos blocos abaixo.
+a validação e a gravação no CRM continuam sendo do Rubeus. O JS cria sozinho o cabeçalho, os títulos
+das seções, as "Informações gerais" e o rodapé, então **não precisa de nenhum bloco HTML**.
 
-| Arquivo | Onde colar no Rubeus |
-|---|---|
-| `css/ficha.css` | Edição avançada → **CSS** |
-| `js/body.js` | Edição avançada → **Javascript em Body** |
-| `html/01…08-*.html` | Um bloco **HTML** do editor para cada arquivo, na ordem abaixo |
-| `ferramentas/listar-campos.js` | Console do navegador (F12), para listar os campos do form |
-| `preview/index.html` | Simulação local para conferir o visual (`python3 ferramentas/gerar-preview.py`) |
+## Passo a passo (só 2 colagens)
 
-> Se o editor de CSS/JS pedir tags, envolva o conteúdo em `<style>…</style>` / `<script>…</script>`.
-> Desligue o "Incluir script que exija a aceitação de cookies" para o JS do body: ele não rastreia
-> nada e precisa rodar sempre, senão o layout e as máscaras só aparecem depois do aceite.
-
-## Ordem dos blocos no editor
-
-1. HTML `01-cabecalho.html`
-2. HTML `02-secao-dados-cliente.html`
+1. No GitHub, abra `css/ficha.css` → botão **Copy raw file** → cole em Edição avançada → **CSS**.
+2. Abra `js/body.js` → **Copy raw file** → cole em Edição avançada → **Javascript em Body**.
+   Desligue o "Incluir script que exija a aceitação de cookies" (o script não rastreia nada e
+   precisa rodar sempre).
+3. Arraste os campos para o formulário nesta ordem:
    - Nome · CNPJ · Endereço sede completo · Inscrição Estadual · Inscrição Municipal ·
      Faturamento bruto anual¹ (seleção) · Regime de Tributação (seleção)
-3. HTML `03-secao-responsavel-projeto.html`
    - Responsável pelo projeto - Nome · - E-mail · - CPF · - Telefone
-4. HTML `04-secao-representante-legal.html`
    - Representante legal - Nome · - E-mail · - CPF · - Telefone
-5. HTML `05-secao-testemunha.html`
    - Testemunha - Nome · - E-mail · - CPF · - Telefone
-6. HTML `06-secao-responsavel-financeiro.html`
    - Responsável financeiro - Nome · - E-mail · - Telefone
-7. HTML `07-informacoes-gerais.html`
    - Observações (texto longo)
-   - (opcional) aceite / checkbox de declaração
-8. HTML `08-nota-e-rodape.html`, depois do botão de enviar
+4. Salve e abra em Pré-visualizar.
+
+> Se o editor de CSS/JS pedir tags, envolva o conteúdo em `<style>…</style>` / `<script>…</script>`.
+
+Outros arquivos:
+- `ferramentas/listar-campos.js`: cole no Console (F12) da pré-visualização para listar os campos.
+- `preview/index.html`: simulação local (`python3 ferramentas/gerar-preview.py`).
+
+Os títulos aparecem antes do primeiro campo cujo rótulo começa com "Responsável pelo projeto",
+"Representante", "Testemunha", "Responsável financeiro" e "Observa…". Para mudar textos ou
+regras, edite `BLOCOS` e `RODAPE` no topo do `js/body.js`.
 
 ## Rótulos dos campos
 

@@ -217,6 +217,24 @@
     });
     inserirBlocos();
     configurarCep();
+    tirarBandeira();
+    configurarLink();
+  }
+
+  function tirarBandeira() {
+    document.querySelectorAll('.fc-linha .fc-entrada[data-fc-mascara="telefone"]').forEach(function (el) {
+      var linha = el.closest('.fc-linha');
+      for (var n = el; n && n !== linha; n = n.parentElement) {
+        Array.prototype.forEach.call(n.parentElement.children, function (irmao) {
+          if (irmao === n || irmao.classList.contains('fc-rotulo') || irmao.contains(el)) return;
+          if (/error|erro|invalid|fc-aviso/i.test(irmao.className)) return;
+          var pareceBandeira = /flag|country|iti|vti|dropdown|select|pais|ddi/i.test(String(irmao.className)) ||
+            irmao.querySelector('img, svg, [class*="flag"]') || /^\s*\+?\d{0,3}\s*$/.test(irmao.textContent) && irmao.textContent.trim();
+          if (pareceBandeira) irmao.classList.add('fc-sem-bandeira');
+        });
+        if (n.parentElement === linha) break;
+      }
+    });
   }
 
   function criarBloco(id, html) {
@@ -305,12 +323,21 @@
     aviso.style.display = texto ? '' : 'none';
   }
 
+  function travar(el, sim) {
+    var linha = el.closest('.fc-linha');
+    el.readOnly = sim;
+    el.tabIndex = sim ? -1 : 0;
+    if (linha) linha.classList.toggle('fc-travado', sim);
+  }
+
   function buscarCep(cep) {
     avisoCep('Buscando endereço...');
     fetch('https://viacep.com.br/ws/' + cep + '/json/')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         mostrarEndereco(true);
+        var cid = campoPorNome(ENDERECO.cidade);
+        if (cid) travar(cid, false);
         if (!d || d.erro) { avisoCep('CEP não encontrado. Preencha o endereço manualmente.'); return; }
         avisoCep('');
         var rua = campoPorNome(ENDERECO.rua);
@@ -320,8 +347,10 @@
         if (rua && d.logradouro) definirValor(rua, d.logradouro);
         if (bairro && d.bairro) definirValor(bairro, d.bairro);
         if (cidade && d.localidade) {
+          travar(cidade, false);
           definirValor(cidade, d.localidade + ' - ' + d.uf);
           escolherOpcao(d.localidade, d.uf, 5);
+          travar(cidade, true);
         }
         if (numero) setTimeout(function () { numero.focus(); }, 50);
       })
@@ -350,6 +379,79 @@
     cep.addEventListener('blur', function () {
       if (digitos(cep.value).length && digitos(cep.value).length < 8) mostrarEndereco(true);
     });
+  }
+
+  var LINK_CAMPO = 'processo.camposPersonalizados.campopersonalizado_585_compl_proc';
+  var LINK_BASE = 'https://flaviasantos190885.github.io/ficha_clientes_rubeus/ficha/';
+
+  function valorDoCampo(linha) {
+    var sel = linha.querySelector('select.fc-entrada');
+    if (sel) {
+      var op = sel.options[sel.selectedIndex];
+      return op && op.value !== '' && !/^selecione/i.test(op.text) ? op.text.trim() : '';
+    }
+    var marcados = linha.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked');
+    if (linha.querySelector('input[type="checkbox"], input[type="radio"]')) {
+      return Array.prototype.map.call(marcados, function (m) {
+        var l = m.closest('label');
+        return l ? l.textContent.trim() : (m.value || 'Sim');
+      }).join(', ');
+    }
+    var el = linha.querySelector('.fc-entrada');
+    return el ? el.value.trim() : '';
+  }
+
+  function montarDados() {
+    var secoes = [];
+    var atual = null;
+    document.querySelectorAll('.fc-bloco .fc-secao, .fc-linha').forEach(function (n) {
+      if (n.classList.contains('fc-secao')) {
+        atual = [n.childNodes[0].textContent.trim(), [], (n.querySelector('small') || {}).textContent || ''];
+        secoes.push(atual);
+        return;
+      }
+      if (n.dataset.fcNome === LINK_CAMPO) return;
+      var rot = n.querySelector('.fc-rotulo');
+      if (!rot) return;
+      if (!atual) { atual = ['', [], '']; secoes.push(atual); }
+      atual[1].push([rot.textContent.replace(/\s*\*\s*$/, '').trim(), valorDoCampo(n)]);
+    });
+    return { v: 1, t: new Date().toISOString(), s: secoes.filter(function (x) { return x[1].length; }) };
+  }
+
+  function codificar(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function atualizarLink() {
+    var campo = campoPorNome(LINK_CAMPO);
+    if (!campo) return;
+    var link = LINK_BASE + '#d=' + codificar(montarDados());
+    if (campo.value !== link) definirValor(campo, link);
+  }
+
+  var agendaLink = null;
+  function configurarLink() {
+    var campo = campoPorNome(LINK_CAMPO);
+    if (!campo) return;
+    var linha = campo.closest('.fc-linha');
+    if (linha) linha.classList.add('fc-oculto-sempre');
+    if (document.documentElement.dataset.fcLink) return;
+    document.documentElement.dataset.fcLink = '1';
+    function agendar() {
+      clearTimeout(agendaLink);
+      agendaLink = setTimeout(atualizarLink, 300);
+    }
+    document.addEventListener('input', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
+    document.addEventListener('change', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('button, [type="submit"]')) atualizarLink();
+    }, true);
+    document.addEventListener('submit', atualizarLink, true);
+    agendar();
   }
 
   var agendado = null;

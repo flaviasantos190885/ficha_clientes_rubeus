@@ -65,3 +65,11 @@ Ao abrir, só o CEP aparece. Com 8 dígitos o JS consulta o ViaCEP, preenche End
 Cidade/Estado (formato "Muriaé - MG"), mostra os demais campos e põe o cursor em Número.
 Se o CEP não existir, os campos aparecem vazios para preenchimento manual.
 Os `name` dos campos ficam em `ENDERECO` no `js/body.js`.
+
+## Link da ficha (campo 585)
+
+O campo `campopersonalizado_585_compl_proc` (texto longo, fica oculto no form) recebe um link para
+`ficha/index.html` com os dados preenchidos dentro do próprio link (depois do `#`, que não é enviado
+a nenhum servidor). A página monta a ficha no layout do PDF e tem o botão "Salvar em PDF / Imprimir".
+O endereço base fica em `LINK_BASE` no `js/body.js` e precisa apontar para onde `ficha/index.html`
+estiver publicado (ex.: GitHub Pages).

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Ficha cadastral</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --verde: #12857f; --vermelho: #c8323e; --borda: #e3e3e3; --texto: #2b2b2b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #ececec; font-family: 'Poppins', Arial, sans-serif; color: var(--texto); }
+  .acoes { max-width: 794px; margin: 16px auto 0; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; }
+  .acoes button { background: var(--verde); color: #fff; border: 0; border-radius: 4px; padding: 10px 18px; font: inherit; font-size: 14px; cursor: pointer; }
+  .folha { max-width: 794px; margin: 12px auto 32px; background: #fff; padding: 0 56px 32px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+  .faixa { height: 10px; margin: 0 -56px 28px; background: linear-gradient(90deg, var(--verde) 0 30%, #fff 30% 34%, var(--vermelho) 34% 66%, #fff 66% 70%, var(--verde) 70%); }
+  .cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .logo { font-size: 30px; font-weight: 600; color: var(--verde); }
+  .site { font-size: 20px; color: #555; }
+  h2 { font-size: 15px; font-weight: 600; color: var(--verde); text-decoration: underline; text-underline-offset: 3px; margin: 22px 0 4px; }
+  h2 small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  td { border: 1px solid var(--borda); padding: 5px 8px; vertical-align: top; }
+  td:first-child { width: 33%; color: #555; }
+  td.vazio { color: #aaa; }
+  .info { border: 1px solid var(--borda); padding: 8px 10px; font-size: 13px; line-height: 1.55; text-align: justify; }
+  .info p { margin: 0; }
+  .nota { font-size: 11.5px; line-height: 1.5; margin-top: 18px; text-align: justify; }
+  .gerado { font-size: 11px; color: #888; margin-top: 10px; }
+  .rodape { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--borda); font-size: 11px; color: #666; }
+  .erro { max-width: 794px; margin: 40px auto; padding: 24px; background: #fff; text-align: center; }
+  @media print {
+    body { background: #fff; }
+    .acoes { display: none; }
+    .folha { box-shadow: none; margin: 0; max-width: none; padding: 0 0 16px; }
+    .faixa { margin: 0 0 24px; }
+    tr, h2 { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    @page { size: A4; margin: 12mm 14mm; }
+  }
+</style>
+</head>
+<body>
+<div class="acoes"><button type="button" onclick="window.print()">Salvar em PDF / Imprimir</button></div>
+<div id="saida"></div>
+<script>
+(function () {
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function decodificar(txt) {
+    var b64 = txt.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+  var saida = document.getElementById('saida');
+  var m = location.hash.match(/[#&]d=([^&]+)/);
+  var dados;
+  try { dados = decodificar(m[1]); } catch (e) {
+    document.querySelector('.acoes').style.display = 'none';
+    saida.innerHTML = '<div class="erro">Link da ficha inválido ou incompleto.</div>';
+    return;
+  }
+  var html = '<div class="folha"><div class="faixa"></div>' +
+    '<div class="cab"><span class="logo">Rubeus</span><span class="site">rubeus.com.br</span></div>';
+  dados.s.forEach(function (sec) {
+    var titulo = sec[0], campos = sec[1], detalhe = sec[2];
+    if (/^informa/i.test(titulo)) {
+      html += '<h2>Informações gerais</h2><div class="info">' +
+        '<p>– Se ocorrer qualquer tipo de alteração cadastral, informe à Rubeus.</p>' +
+        '<p>– As informações são de uso estritamente confidencial, protegidas pelos parâmetros da legislação vigente.</p>' +
+        '<p>– A responsabilidade pelo preenchimento é exclusiva do declarante.</p></div>';
+      titulo = '';
+    }
+    if (titulo) html += '<h2>' + esc(titulo) + (detalhe ? ' <small>' + esc(detalhe) + '</small>' : '') + '</h2>';
+    html += '<table>' + campos.map(function (c) {
+      return '<tr><td>' + esc(c[0]) + '</td><td' + (c[1] ? '' : ' class="vazio"') + '>' + (c[1] ? esc(c[1]).replace(/\n/g, '<br>') : '—') + '</td></tr>';
+    }).join('') + '</table>';
+  });
+  var data = new Date(dados.t);
+  html += '<p class="nota"><sup>1</sup> A estrutura de atendimento da Rubeus é organizada pelo porte do cliente, assim, a informação sobre faturamento bruto anual é utilizada restrita e exclusivamente para melhor atender as necessidades de cada cliente.</p>' +
+    (isNaN(data) ? '' : '<p class="gerado">Ficha preenchida em ' + esc(data.toLocaleString('pt-BR')) + '</p>') +
+    '<div class="rodape"><span>SP: (11) 3586-4784 · BH: (31) 3514-7811</span><span>contato@rubeus.com.br</span><span>Praça João Pinheiro, 30 – Centro, 36880-043 – Muriaé/MG</span></div></div>';
+  saida.innerHTML = html;
+  var nome = (dados.s[0] && dados.s[0][1][0] && dados.s[0][1][0][1]) || '';
+  if (nome) document.title = 'Ficha cadastral - ' + nome;
+})();
+</script>
+</body>
+</html>

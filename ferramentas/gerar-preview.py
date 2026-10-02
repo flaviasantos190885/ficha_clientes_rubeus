@@ -36,6 +36,7 @@ ESTRUTURA = [
     ("E-mail do responsável financeiro", "text", "processo.camposPersonalizados.f_email"),
     ("Telefone do responsável financeiro", "text", "processo.camposPersonalizados.f_tel"),
     ("Observações", "textarea", "processo.camposPersonalizados.obs"),
+    ("RpR - Link Ficha (PDF)", "textarea", "processo.camposPersonalizados.campopersonalizado_585_compl_proc"),
 ]
 
 

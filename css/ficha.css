@@ -87,12 +87,10 @@
 .fc-ficha .fc-linha select.fc-entrada { cursor: pointer; }
 .fc-ficha .fc-linha.fc-oculto { display: none !important; }
 .fc-ficha .fc-linha .fc-aviso { grid-column: 2; padding: 0 8px 6px !important; font-size: 12px; color: var(--fc-cinza); }
-.fc-ficha .fc-linha .iti { display: block !important; width: 100% !important; }
-.fc-ficha .fc-linha .iti__flag-container,
-.fc-ficha .fc-linha .iti__country-container,
-.fc-ficha .fc-linha .iti__selected-flag,
-.fc-ficha .fc-linha [class*="flag"]:not(.fc-entrada):not(.fc-cel),
-.fc-ficha .fc-linha [class*="country"]:not(.fc-entrada):not(.fc-cel) { display: none !important; }
+.fc-ficha .fc-linha .fc-entrada { position: relative; z-index: 2; pointer-events: auto !important; }
+.fc-ficha .fc-linha .fc-sem-bandeira { display: none !important; }
+.fc-ficha .fc-linha.fc-travado .fc-entrada { background: #f3f3f3 !important; color: #555 !important; pointer-events: none !important; }
+.fc-ficha .fc-linha.fc-oculto-sempre { display: none !important; }
 
 .fc-ficha .fc-linha.fc-tipo-textarea { grid-template-columns: 1fr; }
 .fc-ficha .fc-linha.fc-tipo-textarea > * { grid-column: 1; }

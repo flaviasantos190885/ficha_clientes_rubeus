@@ -297,15 +297,52 @@
     return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  function escolherOpcao(cidade, uf, tentativas) {
+  function escolherOpcao(cidade, uf, tentativas, fim) {
     var alvos = [cidade + ' - ' + uf, cidade + '/' + uf, cidade + ' / ' + uf, cidade + ' (' + uf + ')'].map(normalizar);
-    var ops = document.querySelectorAll('[role="option"], li, .dropdown-item, [class*="option"], [class*="item"]');
+    var ops = document.querySelectorAll('.autocomplete-content li, [role="option"], li, .dropdown-item');
     for (var i = 0; i < ops.length; i++) {
       var o = ops[i];
       if (!o.offsetParent || o.closest('.fc-bloco')) continue;
-      if (alvos.indexOf(normalizar(o.textContent)) !== -1) { o.click(); return; }
+      if (alvos.indexOf(normalizar(o.textContent)) !== -1) {
+        o.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        o.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        o.click();
+        fim(true);
+        return;
+      }
     }
-    if (tentativas > 0) setTimeout(function () { escolherOpcao(cidade, uf, tentativas - 1); }, 400);
+    if (tentativas > 0) setTimeout(function () { escolherOpcao(cidade, uf, tentativas - 1, fim); }, 300);
+    else fim(false);
+  }
+
+  function tecla(el, tipo) {
+    el.dispatchEvent(new KeyboardEvent(tipo, { bubbles: true, key: 'a', keyCode: 65 }));
+  }
+
+  function validarCampo(el) {
+    el.focus();
+    tecla(el, 'keyup');
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.blur();
+  }
+
+  function preencherCidade(campo, d, depois) {
+    travar(campo, false);
+    campo.focus();
+    definirValor(campo, d.localidade);
+    tecla(campo, 'keydown');
+    tecla(campo, 'keyup');
+    escolherOpcao(d.localidade, d.uf, 12, function (ok) {
+      if (ok) {
+        setTimeout(function () {
+          campo.blur();
+          travar(campo, true);
+          depois();
+        }, 200);
+      } else {
+        avisoCep('Selecione a cidade na lista do campo Cidade/Estado.');
+      }
+    });
   }
 
   function mostrarEndereco(mostrar) {
@@ -350,15 +387,11 @@
         var bairro = campoPorNome(ENDERECO.bairro);
         var cidade = campoPorNome(ENDERECO.cidade);
         var numero = campoPorNome(ENDERECO.numero);
-        if (rua && d.logradouro) definirValor(rua, d.logradouro);
-        if (bairro && d.bairro) definirValor(bairro, d.bairro);
-        if (cidade && d.localidade) {
-          travar(cidade, false);
-          definirValor(cidade, d.localidade + ' - ' + d.uf);
-          escolherOpcao(d.localidade, d.uf, 5);
-          travar(cidade, true);
-        }
-        if (numero) setTimeout(function () { numero.focus(); }, 50);
+        if (rua && d.logradouro) { definirValor(rua, d.logradouro); validarCampo(rua); }
+        if (bairro && d.bairro) { definirValor(bairro, d.bairro); validarCampo(bairro); }
+        var focarNumero = function () { if (numero) setTimeout(function () { numero.focus(); }, 50); };
+        if (cidade && d.localidade) preencherCidade(cidade, d, focarNumero);
+        else focarNumero();
       })
       .catch(function () {
         mostrarEndereco(true);
@@ -581,6 +614,8 @@
     agendado = setTimeout(function () { agendado = null; processar(); }, 50);
   }
 
+  setTimeout(ajustarBandeira, 1500);
+  setTimeout(ajustarBandeira, 4000);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', processar);
   else processar();
   new MutationObserver(agendar).observe(document.documentElement, { childList: true, subtree: true });

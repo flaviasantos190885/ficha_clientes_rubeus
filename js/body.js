@@ -218,11 +218,11 @@
     });
     inserirBlocos();
     configurarCep();
-    tirarBandeira();
+    ajustarBandeira();
     configurarLink();
   }
 
-  function tirarBandeira() {
+  function ajustarBandeira() {
     document.querySelectorAll('.fc-linha .fc-entrada[data-fc-mascara="telefone"]').forEach(function (el) {
       var linha = el.closest('.fc-linha');
       for (var n = el; n && n !== linha; n = n.parentElement) {
@@ -232,8 +232,10 @@
           var pareceBandeira = /flag|country|iti|vti|dropdown|select|pais|ddi/i.test(String(irmao.className)) ||
             irmao.querySelector('img, svg, [class*="flag"]') || /^\s*\+?\d{0,3}\s*$/.test(irmao.textContent) && irmao.textContent.trim();
           if (pareceBandeira) {
-            irmao.classList.add('fc-sem-bandeira');
+            irmao.classList.add('fc-bandeira');
             el.dataset.fcSemMascara = '1';
+            var largura = irmao.getBoundingClientRect().width;
+            if (largura > 0 && largura < 200) el.style.setProperty('padding-left', Math.round(largura + 10) + 'px', 'important');
           }
         });
         if (n.parentElement === linha) break;
@@ -330,7 +332,6 @@
 
   function travar(el, sim) {
     var linha = el.closest('.fc-linha');
-    el.readOnly = sim;
     el.tabIndex = sim ? -1 : 0;
     if (linha) linha.classList.toggle('fc-travado', sim);
   }

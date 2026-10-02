@@ -47,7 +47,7 @@ def campo(i, label, tipo, nome):
     elif tipo == "textarea":
         ctrl = f'<textarea id="c{i}" name="{nome}"></textarea>'
     elif tipo == "tel-iti":
-        ctrl = (f'<div class="iti"><div class="iti__flag-container"><div class="iti__selected-flag">BR</div></div>'
+        ctrl = (f'<div class="iti" style="position:relative"><div class="iti__flag-container" style="position:absolute;left:0;top:0;bottom:0;width:46px;display:flex;align-items:center;justify-content:center;background:#eee"><div class="iti__selected-flag">BR</div></div>'
                 f'<input id="c{i}" name="{nome}" type="tel" style="padding-left:52px"></div>')
     else:
         ctrl = f'<input id="c{i}" name="{nome}" type="{tipo}">'

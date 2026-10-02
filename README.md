@@ -76,15 +76,14 @@ estiver publicado (ex.: GitHub Pages).
 
 ## Vínculo do responsável pelo projeto
 
-Mesmo fluxo do form 775. O JS segura o clique em "Enviar solicitação" (`#rbBtnNext`) e:
-1. acha o cliente (PJ) pelo CNPJ (`Contato/dadosPessoa`) ou cadastra (`Contato/cadastro`);
-2. cadastra o responsável (PF) com os campos 386/388/564/453;
-3. põe `contato.id` e `evento.codRegistro` em campos ocultos e dispara o envio nativo;
-4. espera o registro aparecer (`Contato/listarOportunidades`, pelo `codigoRegistro`);
-5. manda `Evento/cadastro` com `pessoasSecundarias: [{ id: PF, tipo: "93" }]`.
+O JS segura o clique em "Enviar solicitação" (`#rbBtnNext`) e:
+1. cadastra o responsável (PF) com os campos 386/388/564/453 (`Contato/cadastro`) — o cliente não é alterado;
+2. grava um `evento.codRegistro` em campo oculto e dispara o envio nativo;
+3. acha o cliente (resposta do envio, CNPJ ou nome) e o registro (`Contato/listarOportunidades`);
+4. vincula o responsável no registro com `Oportunidade/alterarPessoas`, tipo `93`.
 
-Se algo falhar antes do envio, a ficha é enviada mesmo assim, sem vínculo. Configuração em
-`RUBEUS` e `VINCULO` no `js/body.js` (evento de vínculo, processo, tipo de pessoa).
+Nada aparece na tela; cada passo fica guardado no navegador. Depois de um envio, rode `fichaLog()` no
+Console para copiar o registro. Configuração em `RUBEUS` e `VINCULO` no `js/body.js`.
 
-**Depois de colar o `js/body.js` no Rubeus, troque `COLE_O_TOKEN_AQUI` pelo token** (o repositório é
-público, por isso o token não fica salvo aqui). As linhas `[ficha]` no Console mostram cada passo.
+O token não fica no repositório (que é público): `js/body.js` tem `COLE_O_TOKEN_AQUI`, e
+`ferramentas/gerar-para-colar.py` gera `para-colar/` (fora do git) com o token do arquivo `.token`.

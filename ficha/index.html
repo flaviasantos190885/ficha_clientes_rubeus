@@ -51,22 +51,30 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function decodificar(txt) {
+  function bytesDe(txt) {
     var b64 = txt.replace(/-/g, '+').replace(/_/g, '/');
     while (b64.length % 4) b64 += '=';
     var bin = atob(b64);
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return JSON.parse(new TextDecoder().decode(bytes));
+    return bytes;
+  }
+  function decodificar(tipo, txt) {
+    var bytes = bytesDe(txt);
+    if (tipo === 'd') return Promise.resolve(JSON.parse(new TextDecoder().decode(bytes)));
+    var fluxo = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(fluxo).text().then(JSON.parse);
   }
   var saida = document.getElementById('saida');
-  var m = location.hash.match(/[#&]d=([^&]+)/);
-  var dados;
-  try { dados = decodificar(m[1]); } catch (e) {
+  function falhar() {
     document.querySelector('.acoes').style.display = 'none';
     saida.innerHTML = '<div class="erro">Link da ficha inválido ou incompleto.</div>';
-    return;
   }
+  var m = location.hash.match(/[#&]([dz])=([^&]+)/);
+  if (!m) { falhar(); return; }
+  decodificar(m[1], m[2]).then(montar).catch(falhar);
+
+  function montar(dados) {
   var html = '<div class="folha"><div class="faixa"></div>' +
     '<div class="cab"><span class="logo">Rubeus</span><span class="site">rubeus.com.br</span></div>';
   dados.s.forEach(function (sec) {
@@ -90,6 +98,7 @@
   saida.innerHTML = html;
   var nome = (dados.s[0] && dados.s[0][1][0] && dados.s[0][1][0][1]) || '';
   if (nome) document.title = 'Ficha cadastral - ' + nome;
+  }
 })();
 </script>
 </body>

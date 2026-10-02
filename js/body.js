@@ -167,7 +167,7 @@
 
     var aplicando = false;
     function aplicar() {
-      if (aplicando) return;
+      if (aplicando || el.dataset.fcSemMascara) return;
       var novo = formatar(tipo, el.value);
       if (novo !== el.value) {
         el.value = novo;
@@ -230,7 +230,10 @@
           if (/error|erro|invalid|fc-aviso/i.test(irmao.className)) return;
           var pareceBandeira = /flag|country|iti|vti|dropdown|select|pais|ddi/i.test(String(irmao.className)) ||
             irmao.querySelector('img, svg, [class*="flag"]') || /^\s*\+?\d{0,3}\s*$/.test(irmao.textContent) && irmao.textContent.trim();
-          if (pareceBandeira) irmao.classList.add('fc-sem-bandeira');
+          if (pareceBandeira) {
+            irmao.classList.add('fc-sem-bandeira');
+            el.dataset.fcSemMascara = '1';
+          }
         });
         if (n.parentElement === linha) break;
       }
@@ -419,18 +422,26 @@
     return { v: 1, t: new Date().toISOString(), s: secoes.filter(function (x) { return x[1].length; }) };
   }
 
-  function codificar(obj) {
-    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+  function base64url(bytes) {
     var bin = '';
     for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
+  function compactar(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+    if (typeof CompressionStream === 'undefined') return Promise.resolve('d=' + base64url(bytes));
+    var fluxo = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(fluxo).arrayBuffer().then(function (buf) { return 'z=' + base64url(new Uint8Array(buf)); });
+  }
+
   function atualizarLink() {
     var campo = campoPorNome(LINK_CAMPO);
     if (!campo) return;
-    var link = LINK_BASE + '#d=' + codificar(montarDados());
-    if (campo.value !== link) definirValor(campo, link);
+    compactar(montarDados()).then(function (parte) {
+      var link = LINK_BASE + '#' + parte;
+      if (campo.value !== link) definirValor(campo, link);
+    }).catch(function () {});
   }
 
   var agendaLink = null;
@@ -447,10 +458,6 @@
     }
     document.addEventListener('input', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
     document.addEventListener('change', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
-    document.addEventListener('click', function (e) {
-      if (e.target.closest('button, [type="submit"]')) atualizarLink();
-    }, true);
-    document.addEventListener('submit', atualizarLink, true);
     agendar();
   }
 

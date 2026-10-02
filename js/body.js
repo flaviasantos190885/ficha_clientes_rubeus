@@ -351,23 +351,57 @@
     el.blur();
   }
 
+  function itemDaLista(campo, cidade, uf) {
+    var alvo = normalizar(cidade + ' - ' + uf);
+    var lista = document.getElementById(campo.getAttribute('data-target') || '') || campo.parentElement;
+    var itens = lista ? lista.querySelectorAll('li') : [];
+    for (var i = 0; i < itens.length; i++) {
+      if (normalizar(itens[i].textContent) === alvo) return itens[i];
+    }
+    return null;
+  }
+
+  function selecionarNaLista(campo, li, d) {
+    var inst = window.M && M.Autocomplete && M.Autocomplete.getInstance && M.Autocomplete.getInstance(campo);
+    if (inst && typeof inst.selectOption === 'function') {
+      if (!li) {
+        li = document.createElement('li');
+        li.innerHTML = '<span></span>';
+        li.firstChild.textContent = d.localidade + ' - ' + d.uf;
+      }
+      var envolver = window.cash || window.jQuery;
+      inst.selectOption(envolver ? envolver(li) : li);
+      return true;
+    }
+    if (li) { clicar(li.querySelector('span') || li); return true; }
+    return false;
+  }
+
   function preencherCidade(campo, d, depois) {
     travar(campo, false);
     campo.focus();
+    var idAntes = campo.getAttribute('valueid');
     digitar(campo, d.localidade, function () {
-      escolherOpcao(campo, d.localidade, d.uf, 12, function (ok) {
+      var tentativas = 10;
+      (function tentar() {
+        var li = itemDaLista(campo, d.localidade, d.uf);
+        if (!li && tentativas-- > 0) { setTimeout(tentar, 250); return; }
+        var ok = selecionarNaLista(campo, li, d);
         setTimeout(function () {
-          var aceito = ok && campo.value && !/invalid/i.test(campo.className);
-          if (aceito) {
-            travar(campo, true);
-            depois();
-          } else {
-            console.log('[ficha] cidade não selecionada automaticamente:', d.localidade, d.uf);
-            campo.focus();
-            avisoCep('Selecione a cidade na lista do campo Cidade/Estado.');
-          }
-        }, 400);
-      });
+          campo.blur();
+          setTimeout(function () {
+            var aceito = ok && normalizar(campo.value) === normalizar(d.localidade + ' - ' + d.uf) && !/invalid/i.test(campo.className);
+            console.log('[ficha] cidade:', campo.value, '| valueid:', idAntes, '->', campo.getAttribute('valueid'), '| aceita:', aceito);
+            if (aceito) {
+              travar(campo, true);
+              depois();
+            } else {
+              campo.focus();
+              avisoCep('Selecione a cidade na lista do campo Cidade/Estado.');
+            }
+          }, 200);
+        }, 150);
+      })();
     });
   }
 

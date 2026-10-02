@@ -226,8 +226,27 @@
     configurarEnvio();
   }
 
+  function limitarTelefone(el) {
+    if (el.dataset.fcLimite) return;
+    el.dataset.fcLimite = '1';
+    el.addEventListener('keydown', function (e) {
+      if (!/^\d$/.test(e.key) || e.ctrlKey || e.metaKey) return;
+      var sel = (el.selectionEnd || 0) - (el.selectionStart || 0);
+      if (digitos(el.value).length >= 11 && sel === 0) e.preventDefault();
+    });
+    el.addEventListener('input', function () {
+      if (digitos(el.value).length <= 11) return;
+      var v = el.value, cont = 0, corte = v.length;
+      for (var i = 0; i < v.length; i++) {
+        if (/\d/.test(v.charAt(i)) && ++cont > 11) { corte = i; break; }
+      }
+      definirValor(el, v.slice(0, corte).replace(/[\s()-]+$/, ''));
+    });
+  }
+
   function ajustarBandeira() {
     document.querySelectorAll('.fc-linha .fc-entrada[data-fc-mascara="telefone"]').forEach(function (el) {
+      limitarTelefone(el);
       var linha = el.closest('.fc-linha');
       for (var n = el; n && n !== linha; n = n.parentElement) {
         Array.prototype.forEach.call(n.parentElement.children, function (irmao) {

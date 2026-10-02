@@ -1,0 +1,133 @@
+/*
+ * Ficha Cadastral Rubeus — CSS
+ * Cole no bloco "CSS" da Edição avançada.
+ * As classes .fc-* são colocadas pelo js/body.js; as dos blocos HTML já vêm prontas.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+:root {
+  --fc-verde: #12857f;
+  --fc-verde-escuro: #0d6662;
+  --fc-vermelho: #c8323e;
+  --fc-texto: #2b2b2b;
+  --fc-cinza: #6b6b6b;
+  --fc-borda: #e3e3e3;
+  --fc-fundo-rotulo: #fafafa;
+  --fc-largura-rotulo: 34%;
+}
+
+.fc-ficha body { font-family: 'Poppins', Arial, sans-serif; color: var(--fc-texto); }
+
+/* ---------- Cabeçalho / rodapé (blocos HTML) ---------- */
+.fc-faixa {
+  height: 8px; margin-bottom: 24px;
+  background: linear-gradient(90deg, var(--fc-verde) 0 30%, transparent 30% 40%, var(--fc-vermelho) 40% 70%, transparent 70% 80%, var(--fc-verde) 80%);
+}
+.fc-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.fc-cabecalho img { height: 40px; width: auto; }
+.fc-logo { font-size: 30px; font-weight: 600; color: var(--fc-verde); letter-spacing: -0.5px; }
+.fc-cabecalho .fc-site { font-size: 20px; color: #555; text-decoration: none; }
+.fc-titulo-ficha { font-size: 22px; font-weight: 600; color: var(--fc-verde); margin: 16px 0 4px; }
+.fc-subtitulo-ficha { font-size: 14px; color: var(--fc-cinza); margin: 0 0 8px; }
+
+/* ---------- Títulos de seção ---------- */
+.fc-secao {
+  font-size: 16px; font-weight: 600; color: var(--fc-verde);
+  text-decoration: underline; text-underline-offset: 3px;
+  margin: 28px 0 6px; padding: 0;
+}
+.fc-secao small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }
+
+/* ---------- Linhas "tabela" (rótulo | campo) ---------- */
+.fc-ficha .fc-linha {
+  display: grid !important;
+  grid-template-columns: var(--fc-largura-rotulo) 1fr;
+  align-items: center;
+  margin: -1px 0 0 !important;   /* bordas vizinhas se sobrepõem, como numa tabela */
+  padding: 0 !important;
+  border: 1px solid var(--fc-borda);
+  background: #fff;
+}
+
+.fc-ficha .fc-linha > * { min-width: 0; }
+.fc-ficha .fc-rotulo {
+  grid-column: 1;
+  align-self: stretch;
+  display: flex !important; align-items: center;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important; font-weight: 400 !important;
+  color: #444 !important;
+  background: var(--fc-fundo-rotulo);
+  border-right: 1px solid var(--fc-borda);
+}
+.fc-ficha .fc-linha > :not(.fc-rotulo) { grid-column: 2; }
+.fc-ficha .fc-linha .fc-entrada {
+  width: 100% !important; box-sizing: border-box;
+  border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  background: transparent !important;
+  padding: 8px 12px !important; margin: 0 !important;
+  font: inherit; font-size: 14px !important; color: var(--fc-texto) !important;
+  min-height: 38px;
+}
+.fc-ficha .fc-linha .fc-entrada:focus { outline: 2px solid var(--fc-verde) !important; outline-offset: -2px; }
+.fc-ficha .fc-linha select.fc-entrada { cursor: pointer; }
+
+/* Observações: rótulo em cima, área de texto grande */
+.fc-ficha .fc-linha.fc-tipo-textarea { grid-template-columns: 1fr; }
+.fc-ficha .fc-linha.fc-tipo-textarea > * { grid-column: 1; }
+.fc-ficha .fc-linha.fc-tipo-textarea .fc-rotulo { border-right: 0; border-bottom: 1px solid var(--fc-borda); font-weight: 600 !important; }
+.fc-ficha .fc-linha.fc-tipo-textarea .fc-entrada { min-height: 160px; resize: vertical; }
+
+/* Checkbox / aceite: sem grade */
+.fc-ficha .fc-linha.fc-tipo-checkbox,
+.fc-ficha .fc-linha.fc-tipo-radio { display: block !important; padding: 10px 12px !important; }
+.fc-ficha .fc-linha.fc-tipo-checkbox .fc-rotulo,
+.fc-ficha .fc-linha.fc-tipo-radio .fc-rotulo { background: none; border: 0; padding: 0 0 6px !important; }
+.fc-ficha .fc-linha.fc-tipo-checkbox .fc-entrada,
+.fc-ficha .fc-linha.fc-tipo-radio .fc-entrada { width: auto !important; min-height: 0; }
+
+/* CPF / CNPJ inválido */
+.fc-ficha .fc-linha.fc-invalido { border-color: var(--fc-vermelho); position: relative; z-index: 1; }
+.fc-ficha .fc-linha.fc-invalido .fc-entrada { color: var(--fc-vermelho) !important; }
+
+/* Mensagens de erro do próprio Rubeus ficam embaixo, ocupando a linha toda */
+.fc-ficha .fc-linha [class*="error"],
+.fc-ficha .fc-linha [class*="erro"],
+.fc-ficha .fc-linha [class*="invalid-feedback"] { grid-column: 1 / -1; padding: 2px 12px 6px; font-size: 12px; }
+
+/* ---------- Informações gerais / nota ---------- */
+.fc-info {
+  border: 1px solid var(--fc-borda); padding: 12px 14px; margin-top: 4px;
+  font-size: 14px; line-height: 1.55; text-align: justify;
+}
+.fc-info p { margin: 0; }
+.fc-info a { color: #1a56c4; font-weight: 600; }
+.fc-nota { font-size: 12.5px; color: #444; line-height: 1.5; margin-top: 16px; text-align: justify; }
+.fc-asterisco { font-size: 0.75em; vertical-align: super; }
+
+.fc-rodape {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px;
+  margin-top: 32px; padding: 16px 0; border-top: 1px solid var(--fc-borda);
+  font-size: 12px; color: var(--fc-cinza);
+}
+.fc-rodape div { display: flex; align-items: center; gap: 8px; }
+.fc-rodape .fc-ico {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  background: var(--fc-verde); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+}
+
+/* ---------- Celular: rótulo em cima do campo ---------- */
+@media (max-width: 600px) {
+  .fc-ficha .fc-linha { grid-template-columns: 1fr; }
+  .fc-ficha .fc-linha > * { grid-column: 1 !important; }
+  .fc-ficha .fc-rotulo { border-right: 0; border-bottom: 1px solid var(--fc-borda); padding: 6px 12px !important; font-size: 13px !important; }
+  .fc-rodape { flex-direction: column; }
+}
+
+/* ---------- Impressão / PDF ---------- */
+@media print {
+  .fc-ficha .fc-linha { break-inside: avoid; }
+  .fc-secao { break-after: avoid; }
+}

@@ -567,8 +567,8 @@
 
   var VINCULO = {
     tipoPessoa: '93',
-    eventoVinculo: '3550',
-    processo: '',
+    eventoVinculo: '4114',
+    processo: '42',
     baseLegal: '4',
     assinaturas: ['3', '5'],
     campoCnpjContato: 'campopersonalizado_96_compl_cont',
@@ -815,17 +815,17 @@
     var inicio = Date.now();
     var maisRecente = null;
     var tentativa = 0;
-    while (Date.now() - inicio < 60000) {
+    while (Date.now() - inicio < 120000) {
       var corpo = { id: pj };
       if (VINCULO.processo) corpo.processo = VINCULO.processo;
       var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
       var lista = r && r.success && Array.isArray(r.dados) ? r.dados : [];
-      if (tentativa++ === 0) log.info('[ficha] listarOportunidades:', lista.length, 'registro(s)', lista.slice(0, 5).map(function (x) { return { id: x.id, cod: x.codigoRegistro, processo: x.processo || x.idProcesso }; }));
+      if (tentativa++ % 6 === 0) log.info('[ficha] tentativa ' + tentativa + ' |','[ficha] listarOportunidades:', lista.length, 'registro(s)', lista.slice(0, 5).map(function (x) { return { id: x.id, cod: x.codigoRegistro, processo: x.processo || x.idProcesso }; }));
       for (var i = 0; i < lista.length; i++) {
         if (lista[i].codigoRegistro === cadastro.cod) { log.info('[ficha] registro encontrado pelo código:', lista[i].id); return String(lista[i].id); }
         if (!maisRecente || Number(lista[i].id) > Number(maisRecente.id)) maisRecente = lista[i];
       }
-      if (Date.now() - inicio > 30000 && VINCULO.processo && maisRecente) {
+      if (Date.now() - inicio > 60000 && VINCULO.processo && maisRecente) {
         log.aviso('[ficha] código não encontrado; usando o registro mais novo do cliente:', maisRecente.id);
         return String(maisRecente.id);
       }
@@ -834,19 +834,49 @@
     throw new Error('registro não encontrado (código ' + cadastro.cod + ')');
   }
 
+  async function pessoasDoRegistro(idRegistro) {
+    var reg = await api('Registro/dados', { id: idRegistro }).catch(function () { return null; });
+    if (!reg || !reg.success || !reg.dados) return null;
+    return Array.isArray(reg.dados.pessoas) ? reg.dados.pessoas : [];
+  }
+
+  function jaVinculado(pessoas) {
+    return (pessoas || []).some(function (p) { return String(p.id) === String(cadastro.pf) && String(p.tipo) === VINCULO.tipoPessoa; });
+  }
+
+  async function enviarEventoVinculo(idRegistro) {
+    var corpo = {
+      tipo: VINCULO.eventoVinculo,
+      pessoa: { id: cadastro.pj },
+      codRegistro: cadastro.cod,
+      idOportunidade: idRegistro,
+      pessoasSecundarias: [{ id: cadastro.pf, tipo: VINCULO.tipoPessoa }]
+    };
+    for (var t = 1; t <= 10; t++) {
+      var r = await api('Evento/cadastro', JSON.parse(JSON.stringify(corpo))).catch(function (e) { return { success: false, erro: String(e) }; });
+      log.info('[ficha] evento ' + VINCULO.eventoVinculo + ', tentativa ' + t + ':', r);
+      if (r && r.success !== false) return true;
+      await esperar(2000);
+    }
+    return false;
+  }
+
   async function vincularNoRegistro(idRegistro) {
-    var reg = await api('Registro/dados', { id: idRegistro });
-    if (!reg || !reg.success || !reg.dados) throw new Error('Registro/dados falhou');
-    var pessoas = (Array.isArray(reg.dados.pessoas) ? reg.dados.pessoas : []).map(function (p) {
+    var okEvento = await enviarEventoVinculo(idRegistro);
+    await esperar(4000);
+    var pessoas = await pessoasDoRegistro(idRegistro);
+    log.info('[ficha] pessoas no registro depois do evento:', (pessoas || []).map(function (p) { return { id: p.id, tipo: p.tipo }; }));
+    if (jaVinculado(pessoas)) return;
+    log.aviso('[ficha] evento ' + (okEvento ? 'aceito' : 'recusado') + ', mas o responsável ainda não aparece no registro; vinculando direto');
+    var lista = (pessoas || []).map(function (p) {
       return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') };
     });
-    var existente = pessoas.filter(function (p) { return p.id === String(cadastro.pf); })[0];
+    var existente = lista.filter(function (p) { return p.id === String(cadastro.pf); })[0];
     if (existente) existente.tipo = VINCULO.tipoPessoa;
-    else pessoas.push({ id: String(cadastro.pf), tipo: VINCULO.tipoPessoa, principal: '0' });
-    var r = await api('Oportunidade/alterarPessoas', { id: idRegistro, pessoas: pessoas });
+    else lista.push({ id: String(cadastro.pf), tipo: VINCULO.tipoPessoa, principal: '0' });
+    var r = await api('Oportunidade/alterarPessoas', { id: idRegistro, pessoas: lista });
     log.info('[ficha] Oportunidade/alterarPessoas:', r);
-    if (!r || !r.success) throw new Error('alterarPessoas falhou');
-    return r;
+    if (!r || !r.success) throw new Error('vínculo recusado pela API');
   }
 
   function envioConcluido() {
@@ -898,6 +928,7 @@
     if (!ok || !comVinculo) return;
     try {
       var pj = await obterPJDepoisDoEnvio();
+      log.info('[ficha] código do registro:', cadastro.cod, '| cliente:', pj, '| responsável:', cadastro.pf);
       var registro = await aguardarRegistro(pj);
       await vincularNoRegistro(registro);
       log.info('[ficha] responsável pelo projeto vinculado ao registro ' + registro);

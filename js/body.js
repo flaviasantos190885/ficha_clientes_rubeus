@@ -26,7 +26,7 @@
         '<h1 class="fc-titulo-ficha">Ficha cadastral</h1>' +
         '<p class="fc-subtitulo-ficha">Preencha os dados abaixo para a formalização do contrato.</p>' +
         titulo('Dados cadastrais do cliente') },
-    { antes: { rotulo: /respons[aá]vel pelo projeto/i, nome: /^processo\./ }, html: titulo('Responsável pelo projeto', '(Contato principal)') },
+    { antes: { rotulo: /respons[aá]vel pelo projeto/i, nome: /campopersonalizado_386_/ }, html: titulo('Responsável pelo projeto', '(Contato principal)') },
     { antes: { rotulo: /representante/i }, html: titulo('Representante(s) legal(is)', '(responsável(is) pela assinatura)') },
     { antes: { rotulo: /testemunha/i }, html: titulo('Testemunha(s)') },
     { antes: { rotulo: /financeiro/i }, html: titulo('Responsável financeiro', '(recebimento de NFs)') },
@@ -199,6 +199,7 @@
       linha.dataset.fcNome = el.name || '';
       linha.classList.add('fc-tipo-' + (el.tagName === 'TEXTAREA' ? 'textarea' : (el.type || el.tagName).toLowerCase()));
       el.classList.add('fc-entrada');
+      for (var p = el.parentElement; p && p !== linha; p = p.parentElement) p.classList.add('fc-cel');
       el.dataset.fcOk = '1';
 
       var rotulo = rotuloDaLinha(linha, el);
@@ -242,12 +243,9 @@
       }
       if (alvo) alvo.parentNode.insertBefore(criarBloco(i, b.html), alvo);
     });
-    if (!document.querySelector('[data-fc-bloco="rodape"]')) {
-      var ultima = linhas[linhas.length - 1];
-      var form = ultima.closest('form');
-      var ref = form || ultima;
-      ref.parentNode.insertBefore(criarBloco('rodape', RODAPE), ref.nextSibling);
-    }
+    var caixa = linhas[0].closest('form') || linhas[0].parentNode;
+    caixa.classList.add('fc-container');
+    if (!document.querySelector('[data-fc-bloco="rodape"]')) caixa.appendChild(criarBloco('rodape', RODAPE));
   }
 
   var agendado = null;

@@ -11,14 +11,14 @@ REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Imune / Isento"
 ESTRUTURA = [
     ("Nome *", "text", "pessoa.nome"), ("CNPJ *", "text", "pessoa.cnpj"),
     ("Endereço sede completo *", "text", "pessoa.endereco"),
-    ("Inscrição Estadual", "text", "contato.camposPersonalizados.ie"),
-    ("Inscrição Municipal", "text", "contato.camposPersonalizados.im"),
-    ("Faturamento bruto anual¹", FAIXAS, "contato.camposPersonalizados.fat"),
-    ("Regime de Tributação", REGIMES, "contato.camposPersonalizados.reg"),
-    ("Nome *", "text", "processo.camposPersonalizados.rp_nome"),
-    ("E-mail do responsável pelo projeto *", "text", "processo.camposPersonalizados.rp_email"),
-    ("CPF do responsável pelo projeto", "text", "processo.camposPersonalizados.rp_cpf"),
-    ("Telefone do responsável pelo projeto", "text", "processo.camposPersonalizados.rp_tel"),
+    ("Inscrição Estadual", "text", "contato.camposPersonalizados.campopersonalizado_127_compl_cont"),
+    ("Inscrição Municipal", "text", "contato.camposPersonalizados.campopersonalizado_126_compl_cont"),
+    ("Faturamento bruto anual¹", FAIXAS, "processo.camposPersonalizados.campopersonalizado_554_compl_proc"),
+    ("Regime de Tributação", REGIMES, "processo.camposPersonalizados.campopersonalizado_556_compl_proc"),
+    ("Nome *", "text", "processo.camposPersonalizados.campopersonalizado_386_compl_proc"),
+    ("E-mail *", "text", "processo.camposPersonalizados.campopersonalizado_388_compl_proc"),
+    ("CPF *", "text", "processo.camposPersonalizados.campopersonalizado_564_compl_proc"),
+    ("Telefone *", "text", "processo.camposPersonalizados.campopersonalizado_453_compl_proc"),
     ("Nome do representante legal", "text", "processo.camposPersonalizados.rl_nome"),
     ("E-mail do representante legal", "text", "processo.camposPersonalizados.rl_email"),
     ("CPF do representante legal", "text", "processo.camposPersonalizados.rl_cpf"),
@@ -42,7 +42,7 @@ def campo(i, label, tipo, nome):
         ctrl = f'<textarea id="c{i}" name="{nome}"></textarea>'
     else:
         ctrl = f'<input id="c{i}" name="{nome}" type="{tipo}">'
-    return f'<div class="form-group"><label for="c{i}">{label}</label>{ctrl}</div>'
+    return f'<div class="form-group"><label for="c{i}">{label}</label><div class="wrap" style="width:340px">{ctrl}</div></div>'
 
 
 partes, i = [], 0
@@ -57,7 +57,7 @@ html = f"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Preview ficha cadastral</title>
 <link rel="stylesheet" href="../css/ficha.css">
-<style>body{{max-width:760px;margin:0 auto;padding:0 16px 40px;background:#fff}}
+<style>body{{margin:0;padding:0 16px 40px;background:#fff}}
 button{{margin-top:16px;padding:10px 24px;background:#12857f;color:#fff;border:0;border-radius:4px}}</style>
 </head><body><form onsubmit="return false">
 {chr(10).join(partes)}

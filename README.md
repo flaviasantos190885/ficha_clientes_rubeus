@@ -87,3 +87,10 @@ Console para copiar o registro. Configuração em `RUBEUS` e `VINCULO` no `js/bo
 
 O token não fica no repositório (que é público): `js/body.js` tem `COLE_O_TOKEN_AQUI`, e
 `ferramentas/gerar-para-colar.py` gera `para-colar/` (fora do git) com o token do arquivo `.token`.
+
+## Visualizador dentro do Rubeus
+
+`visualizador/body.js` é a mesma página de `ficha/index.html`, para colar no **Javascript em Body** de
+uma página do Rubeus (logo embutido, nada vem do GitHub). Ele cobre o conteúdo da página e mostra a
+ficha do link, com o botão "Salvar em PDF / Imprimir". Depois de publicar, coloque o endereço dessa
+página em `LINK_BASE` no `js/body.js`.

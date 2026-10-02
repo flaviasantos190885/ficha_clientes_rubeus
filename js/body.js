@@ -220,6 +220,7 @@
     configurarCep();
     ajustarBandeira();
     configurarLink();
+    configurarEnvio();
   }
 
   function ajustarBandeira() {
@@ -533,8 +534,8 @@
 
   function atualizarLink() {
     var campo = campoPorNome(LINK_CAMPO);
-    if (!campo) return;
-    compactar(montarDados()).then(function (parte) {
+    if (!campo) return Promise.resolve();
+    return compactar(montarDados()).then(function (parte) {
       var link = LINK_BASE + '#' + parte;
       if (campo.value !== link) definirValor(campo, link);
     }).catch(function () {});
@@ -558,114 +559,267 @@
   }
 
   var RUBEUS = {
-    api: 'https://crmrbacademy.apprubeus.com.br/api/',
+    url: 'https://crmrbacademy.apprubeus.com.br/',
+    urlFicha: 'https://rbacademy.apprbs.com.br/',
     origem: '600',
     token: 'COLE_O_TOKEN_AQUI'
   };
 
   var VINCULO = {
-    tipo: '93',
+    tipoPessoa: '93',
+    eventoVinculo: '3550',
+    processo: '',
+    baseLegal: '4',
+    assinaturas: ['3', '5'],
+    campoCnpjContato: 'campopersonalizado_96_compl_cont',
+    empresaNome: 'pessoa.nome',
+    empresaCnpj: 'pessoa.cnpj',
     nome: 'processo.camposPersonalizados.campopersonalizado_386_compl_proc',
     email: 'processo.camposPersonalizados.campopersonalizado_388_compl_proc',
     cpf: 'processo.camposPersonalizados.campopersonalizado_564_compl_proc',
     telefone: 'processo.camposPersonalizados.campopersonalizado_453_compl_proc'
   };
 
+  if (typeof window.iniciar !== 'function') {
+    window.iniciar = function () {
+      if (window.RBLib && RBLib.config) {
+        RBLib.config({ urlBase: RUBEUS.url, urlFicha: RUBEUS.urlFicha, token: RUBEUS.token, origem: RUBEUS.origem });
+      }
+    };
+  }
+
+  var cadastro = { cod: novoCodigo(), pj: '', pf: '', emAndamento: false, liberar: false };
+
+  function novoCodigo() {
+    return Date.now() + '' + Math.floor(Math.random() * 10000) + '_rpr_ficha';
+  }
+
   function valorPorNome(n) {
     var el = campoPorNome(n);
     return el ? String(el.value || '').trim() : '';
   }
 
-  function chamarApi(metodo, corpo) {
+  function esperar(ms) {
+    return new Promise(function (ok) { setTimeout(ok, ms); });
+  }
+
+  function api(metodo, corpo) {
     corpo.origem = RUBEUS.origem;
     corpo.token = RUBEUS.token;
-    return fetchOriginal(RUBEUS.api + metodo, {
+    return fetch(RUBEUS.url + 'api/' + metodo, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo)
     }).then(function (r) { return r.json(); });
   }
 
-  function cadastrarResponsavel() {
+  function idDaResposta(r) {
+    if (!r || r.success === false || !r.dados) return '';
+    var d = Array.isArray(r.dados) ? r.dados[0] : r.dados;
+    return d && typeof d === 'object' ? String(d.id || '') : String(d);
+  }
+
+  function formForm() {
+    var c = document.querySelector('#rbFormContainer');
+    return (c && c.querySelector('form')) || document.querySelector('form');
+  }
+
+  function campoOculto(nome) {
+    var el = campoPorNome(nome);
+    if (!el) {
+      el = document.createElement('input');
+      el.name = nome;
+      el.style.display = 'none';
+      formForm().appendChild(el);
+    }
+    return el;
+  }
+
+  function aviso(msg, tipo) {
+    var c = document.getElementById('fc-status');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'fc-status';
+      c.className = 'fc-status';
+      document.body.appendChild(c);
+    }
+    c.className = 'fc-status fc-status-' + (tipo || 'info');
+    c.textContent = msg;
+    c.style.display = msg ? '' : 'none';
+    if (tipo && tipo !== 'info') setTimeout(function () { c.style.display = 'none'; }, 8000);
+  }
+
+  async function obterPJ() {
+    if (cadastro.pj) return cadastro.pj;
+    var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
+    var codigos = cnpj ? [cnpj, formatar('cnpj', cnpj)] : [];
+    for (var i = 0; i < codigos.length; i++) {
+      var r = await api('Contato/dadosPessoa', { codigo: codigos[i] }).catch(function () { return null; });
+      var id = idDaResposta(r);
+      if (id) { console.log('[ficha] cliente encontrado pelo CNPJ:', id); return (cadastro.pj = id); }
+    }
+    var corpo = {
+      nome: valorPorNome(VINCULO.empresaNome),
+      naturezaJuridica: 2,
+      baseLegal: VINCULO.baseLegal,
+      assinaturas: VINCULO.assinaturas.map(function (a) { return { id: a }; })
+    };
+    var email = valorPorNome(VINCULO.email);
+    var tel = digitos(valorPorNome(VINCULO.telefone));
+    if (email) corpo.emailPrincipal = email;
+    if (tel) corpo.telefonePrincipal = tel;
+    if (cnpj) {
+      corpo.codigo = cnpj;
+      corpo.camposPersonalizados = {};
+      corpo.camposPersonalizados[VINCULO.campoCnpjContato] = cnpj;
+    }
+    var resp = await api('Contato/cadastro', corpo);
+    console.log('[ficha] cadastro do cliente (PJ):', resp);
+    var novo = idDaResposta(resp);
+    if (!novo) throw new Error('não foi possível cadastrar o cliente');
+    return (cadastro.pj = novo);
+  }
+
+  async function obterPF() {
+    if (cadastro.pf) return cadastro.pf;
     var nome = valorPorNome(VINCULO.nome);
+    if (!nome) throw new Error('nome do responsável vazio');
+    var corpo = {
+      nome: nome,
+      naturezaJuridica: 1,
+      baseLegal: VINCULO.baseLegal,
+      assinaturas: VINCULO.assinaturas.map(function (a) { return { id: a }; })
+    };
     var email = valorPorNome(VINCULO.email);
     var tel = digitos(valorPorNome(VINCULO.telefone));
     var cpf = digitos(valorPorNome(VINCULO.cpf));
-    if (!nome || (!email && !tel)) return Promise.reject('responsável sem nome/e-mail/telefone');
-    var corpo = { nome: nome };
     if (email) corpo.emailPrincipal = email;
     if (tel) corpo.telefonePrincipal = tel;
     if (cpf) corpo.cpf = cpf;
-    return chamarApi('Contato/cadastro', corpo).then(function (d) {
-      console.log('[ficha] Contato/cadastro do responsável:', d);
-      if (!d || !d.success || !d.dados) throw d;
-      return [{ id: String(d.dados), tipo: VINCULO.tipo }];
-    });
+    var resp = await api('Contato/cadastro', corpo);
+    console.log('[ficha] cadastro do responsável (PF):', resp);
+    var id = idDaResposta(resp);
+    if (!id) throw new Error('não foi possível cadastrar o responsável');
+    if (id === cadastro.pj) throw new Error('o responsável caiu no mesmo contato do cliente (mesmo e-mail/telefone)');
+    return (cadastro.pf = id);
   }
 
-  function comTempoLimite(promessa, ms) {
-    return Promise.race([promessa, new Promise(function (_, nao) { setTimeout(function () { nao('tempo esgotado'); }, ms); })]);
+  async function aguardarRegistro() {
+    var inicio = Date.now();
+    while (Date.now() - inicio < 60000) {
+      var corpo = { id: cadastro.pj };
+      if (VINCULO.processo) corpo.processo = VINCULO.processo;
+      var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
+      var lista = r && r.success && Array.isArray(r.dados) ? r.dados : [];
+      for (var i = 0; i < lista.length; i++) {
+        if (lista[i].codigoRegistro === cadastro.cod) return lista[i];
+      }
+      await esperar(2000);
+    }
+    throw new Error('o registro não apareceu no CRM a tempo');
   }
 
-  function ehEnvioDoForm(url, corpo) {
-    if (typeof corpo !== 'string' || corpo.charAt(0) !== '{') return false;
-    if (String(url).indexOf(RUBEUS.api) === 0) return false;
+  async function vincular(registro) {
+    var corpo = {
+      tipo: VINCULO.eventoVinculo,
+      pessoa: { id: cadastro.pj },
+      codRegistro: cadastro.cod,
+      pessoasSecundarias: [{ id: cadastro.pf, tipo: VINCULO.tipoPessoa }]
+    };
+    if (registro && registro.id) corpo.idOportunidade = registro.id;
+    for (var t = 1; t <= 10; t++) {
+      var r = await api('Evento/cadastro', JSON.parse(JSON.stringify(corpo))).catch(function () { return null; });
+      console.log('[ficha] vínculo, tentativa ' + t + ':', r);
+      if (r && r.success !== false) return r;
+      await esperar(2000);
+    }
+    throw new Error('falha no vínculo após 10 tentativas');
+  }
+
+  function envioConcluido() {
+    var f = document.getElementById('rbFormFeedbackMessage');
+    return !!(f && f.offsetParent !== null);
+  }
+
+  function barradoNaValidacao() {
+    return Array.prototype.some.call(document.querySelectorAll('.invalidField'), function (el) { return el.offsetParent !== null; });
+  }
+
+  async function envioNativo(btn) {
+    if (typeof btn.ondblclick === 'function') btn.ondblclick.call(btn, new MouseEvent('dblclick'));
+    else { cadastro.liberar = true; btn.click(); }
+    var inicio = Date.now();
+    while (Date.now() - inicio < 30000) {
+      await esperar(300);
+      if (envioConcluido()) return true;
+      if (Date.now() - inicio > 1200 && barradoNaValidacao()) return false;
+    }
+    return true;
+  }
+
+  async function finalizar(btn) {
+    await atualizarLink().catch(function () {});
+    var comVinculo = RUBEUS.token !== 'COLE_O_TOKEN_AQUI' && !!valorPorNome(VINCULO.nome);
+    if (comVinculo) {
+      aviso('Cadastrando cliente e responsável pelo projeto...');
+      try {
+        await obterPJ();
+        await obterPF();
+        campoOculto('contato.id').value = cadastro.pj;
+        campoOculto('evento.codRegistro').value = cadastro.cod;
+      } catch (e) {
+        console.warn('[ficha] seguindo sem vínculo:', e);
+        comVinculo = false;
+      }
+    } else {
+      console.warn('[ficha] vínculo desligado (token não configurado ou responsável vazio)');
+    }
+    aviso(comVinculo ? 'Enviando a ficha...' : '');
+    var ok = await envioNativo(btn);
+    if (!ok) { aviso(''); return; }
+    if (!comVinculo) { aviso(''); return; }
     try {
-      var j = JSON.parse(corpo);
-      return !!(j && j.pessoa && typeof j.pessoa === 'object');
-    } catch (e) { return false; }
+      aviso('Aguardando o registro ser criado no CRM...');
+      var registro = await aguardarRegistro();
+      aviso('Vinculando o responsável pelo projeto...');
+      await vincular(registro);
+      aviso('Ficha enviada e responsável pelo projeto vinculado!', 'sucesso');
+    } catch (e) {
+      console.error('[ficha] erro no vínculo:', e);
+      aviso('Ficha enviada, mas não foi possível vincular o responsável. Vincule manualmente.', 'erro');
+    }
   }
 
-  function injetar(corpo, secundarias) {
-    var j = JSON.parse(corpo);
-    j.pessoasSecundarias = (Array.isArray(j.pessoasSecundarias) ? j.pessoasSecundarias : []).concat(secundarias);
-    return JSON.stringify(j);
-  }
-
-  function prepararCorpo(url, corpo) {
-    console.log('[ficha] envio do formulário detectado:', url, corpo);
-    return comTempoLimite(cadastrarResponsavel(), 8000).then(function (sec) {
-      var novo = injetar(corpo, sec);
-      console.log('[ficha] envio com responsável vinculado (tipo ' + VINCULO.tipo + '):', novo);
-      return novo;
-    }, function (erro) {
-      console.warn('[ficha] não foi possível vincular o responsável, enviando sem vínculo:', erro);
-      return corpo;
-    });
-  }
-
-  var fetchNativo = window.fetch;
-  function fetchOriginal(entrada, opcoes) { return fetchNativo.call(window, entrada, opcoes); }
-  if (!window.__fcInterceptado && typeof Proxy !== 'undefined') {
-    window.__fcInterceptado = true;
-    var proto = XMLHttpRequest.prototype;
-    proto.open = new Proxy(proto.open, {
-      apply: function (alvo, xhr, args) {
-        try { xhr.__fcUrl = args[1]; } catch (e) {}
-        return Reflect.apply(alvo, xhr, args);
+  function configurarEnvio() {
+    if (document.documentElement.dataset.fcEnvio) return;
+    document.documentElement.dataset.fcEnvio = '1';
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('#rbBtnNext');
+      if (!btn) return;
+      if (cadastro.liberar) { cadastro.liberar = false; return; }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (cadastro.emAndamento || btn.disabled) return;
+      cadastro.emAndamento = true;
+      btn.style.pointerEvents = 'none';
+      btn.style.opacity = '0.6';
+      finalizar(btn).catch(function (err) { console.error('[ficha]', err); }).then(function () {
+        cadastro.emAndamento = false;
+        btn.style.pointerEvents = '';
+        btn.style.opacity = '';
+      });
+    }, true);
+    document.addEventListener('dblclick', function (e) {
+      if (e.target.closest && e.target.closest('#rbBtnNext')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
       }
-    });
-    proto.send = new Proxy(proto.send, {
-      apply: function (alvo, xhr, args) {
-        var corpo = args[0];
-        if (typeof corpo === 'string') console.log('[ficha] requisição:', xhr.__fcUrl, corpo.slice(0, 300));
-        if (!ehEnvioDoForm(xhr.__fcUrl, corpo)) return Reflect.apply(alvo, xhr, args);
-        prepararCorpo(xhr.__fcUrl, corpo).then(function (novo) { Reflect.apply(alvo, xhr, [novo]); });
+    }, true);
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.rbReturnToFirstStep')) {
+        cadastro = { cod: novoCodigo(), pj: '', pf: '', emAndamento: false, liberar: false };
       }
-    });
-    window.fetch = new Proxy(fetchNativo, {
-      apply: function (alvo, ctx, args) {
-        var entrada = args[0], opcoes = args[1];
-        var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
-        if (opcoes && typeof opcoes.body === 'string') console.log('[ficha] requisição:', url, opcoes.body.slice(0, 300));
-        if (opcoes && ehEnvioDoForm(url, opcoes.body)) {
-          return prepararCorpo(url, opcoes.body).then(function (novo) {
-            return Reflect.apply(alvo, window, [entrada, Object.assign({}, opcoes, { body: novo })]);
-          });
-        }
-        return Reflect.apply(alvo, window, args);
-      }
-    });
+    }, true);
   }
 
   var agendado = null;

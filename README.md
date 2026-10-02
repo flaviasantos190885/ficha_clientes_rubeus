@@ -76,9 +76,15 @@ estiver publicado (ex.: GitHub Pages).
 
 ## Vínculo do responsável pelo projeto
 
-No envio, o JS cadastra o responsável (campos 386/388/564/453) com `Contato/cadastro` e acrescenta
-`pessoasSecundarias: [{ id, tipo: "93" }]` ao evento do formulário, para o fluxo vincular como
-"(Cliente) Responsável do Projeto". Se algo falhar, o formulário é enviado normalmente, sem o vínculo.
+Mesmo fluxo do form 775. O JS segura o clique em "Enviar solicitação" (`#rbBtnNext`) e:
+1. acha o cliente (PJ) pelo CNPJ (`Contato/dadosPessoa`) ou cadastra (`Contato/cadastro`);
+2. cadastra o responsável (PF) com os campos 386/388/564/453;
+3. põe `contato.id` e `evento.codRegistro` em campos ocultos e dispara o envio nativo;
+4. espera o registro aparecer (`Contato/listarOportunidades`, pelo `codigoRegistro`);
+5. manda `Evento/cadastro` com `pessoasSecundarias: [{ id: PF, tipo: "93" }]`.
+
+Se algo falhar antes do envio, a ficha é enviada mesmo assim, sem vínculo. Configuração em
+`RUBEUS` e `VINCULO` no `js/body.js` (evento de vínculo, processo, tipo de pessoa).
 
 **Depois de colar o `js/body.js` no Rubeus, troque `COLE_O_TOKEN_AQUI` pelo token** (o repositório é
 público, por isso o token não fica salvo aqui). As linhas `[ficha]` no Console mostram cada passo.

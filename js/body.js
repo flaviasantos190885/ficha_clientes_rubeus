@@ -216,6 +216,7 @@
       }
     });
     inserirBlocos();
+    configurarCep();
   }
 
   function criarBloco(id, html) {
@@ -246,6 +247,109 @@
     var caixa = linhas[0].closest('form') || linhas[0].parentNode;
     caixa.classList.add('fc-container');
     if (!document.querySelector('[data-fc-bloco="rodape"]')) caixa.appendChild(criarBloco('rodape', RODAPE));
+  }
+
+  var ENDERECO = {
+    cep: 'pessoa.cep',
+    rua: 'pessoa.endereco',
+    numero: 'pessoa.numero',
+    complemento: 'contato.camposPersonalizados.campopersonalizado_122_compl_cont',
+    bairro: 'pessoa.bairro',
+    cidade: 'pessoa.cidade'
+  };
+  var OCULTAR_ATE_CEP = ['rua', 'numero', 'complemento', 'bairro', 'cidade'];
+
+  function campoPorNome(n) { return document.querySelector('[name="' + n + '"]'); }
+
+  function definirValor(el, v) {
+    var proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function normalizar(t) {
+    return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function escolherOpcao(cidade, uf, tentativas) {
+    var alvos = [cidade + ' - ' + uf, cidade + '/' + uf, cidade + ' / ' + uf, cidade + ' (' + uf + ')'].map(normalizar);
+    var ops = document.querySelectorAll('[role="option"], li, .dropdown-item, [class*="option"], [class*="item"]');
+    for (var i = 0; i < ops.length; i++) {
+      var o = ops[i];
+      if (!o.offsetParent || o.closest('.fc-bloco')) continue;
+      if (alvos.indexOf(normalizar(o.textContent)) !== -1) { o.click(); return; }
+    }
+    if (tentativas > 0) setTimeout(function () { escolherOpcao(cidade, uf, tentativas - 1); }, 400);
+  }
+
+  function mostrarEndereco(mostrar) {
+    OCULTAR_ATE_CEP.forEach(function (k) {
+      var el = campoPorNome(ENDERECO[k]);
+      var linha = el && el.closest('.fc-linha');
+      if (linha) linha.classList.toggle('fc-oculto', !mostrar);
+    });
+  }
+
+  function avisoCep(texto) {
+    var cep = campoPorNome(ENDERECO.cep);
+    var linha = cep && cep.closest('.fc-linha');
+    if (!linha) return;
+    var aviso = linha.querySelector('.fc-aviso');
+    if (!aviso) {
+      aviso = document.createElement('div');
+      aviso.className = 'fc-aviso';
+      linha.appendChild(aviso);
+    }
+    aviso.textContent = texto || '';
+    aviso.style.display = texto ? '' : 'none';
+  }
+
+  function buscarCep(cep) {
+    avisoCep('Buscando endereço...');
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        mostrarEndereco(true);
+        if (!d || d.erro) { avisoCep('CEP não encontrado. Preencha o endereço manualmente.'); return; }
+        avisoCep('');
+        var rua = campoPorNome(ENDERECO.rua);
+        var bairro = campoPorNome(ENDERECO.bairro);
+        var cidade = campoPorNome(ENDERECO.cidade);
+        var numero = campoPorNome(ENDERECO.numero);
+        if (rua && d.logradouro) definirValor(rua, d.logradouro);
+        if (bairro && d.bairro) definirValor(bairro, d.bairro);
+        if (cidade && d.localidade) {
+          definirValor(cidade, d.localidade + ' - ' + d.uf);
+          escolherOpcao(d.localidade, d.uf, 5);
+        }
+        if (numero) setTimeout(function () { numero.focus(); }, 50);
+      })
+      .catch(function () {
+        mostrarEndereco(true);
+        avisoCep('Não foi possível buscar o CEP. Preencha o endereço manualmente.');
+      });
+  }
+
+  function configurarCep() {
+    var cep = campoPorNome(ENDERECO.cep);
+    if (!cep || !cep.closest('.fc-linha') || cep.dataset.fcCep) return;
+    cep.dataset.fcCep = '1';
+    var jaPreenchido = OCULTAR_ATE_CEP.some(function (k) {
+      var el = campoPorNome(ENDERECO[k]);
+      return el && el.value;
+    });
+    mostrarEndereco(jaPreenchido || digitos(cep.value).length === 8);
+    var ultimo = '';
+    function verificar() {
+      var d = digitos(cep.value);
+      if (d.length === 8 && d !== ultimo) { ultimo = d; buscarCep(d); }
+    }
+    cep.addEventListener('input', verificar);
+    cep.addEventListener('change', verificar);
+    cep.addEventListener('blur', function () {
+      if (digitos(cep.value).length && digitos(cep.value).length < 8) mostrarEndereco(true);
+    });
   }
 
   var agendado = null;

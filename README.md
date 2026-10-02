@@ -58,3 +58,10 @@ Opções sugeridas:
 Rode `ferramentas/listar-campos.js` no console da pré-visualização: ele copia um JSON com
 label, name, id, tipo e a estrutura HTML de cada campo. Com isso dá para ajustar o CSS/JS à
 estrutura exata do Rubeus, se algo não encaixar.
+
+## Endereço pelo CEP
+
+Ao abrir, só o CEP aparece. Com 8 dígitos o JS consulta o ViaCEP, preenche Endereço, Bairro e
+Cidade/Estado (formato "Muriaé - MG"), mostra os demais campos e põe o cursor em Número.
+Se o CEP não existir, os campos aparecem vazios para preenchimento manual.
+Os `name` dos campos ficam em `ENDERECO` no `js/body.js`.

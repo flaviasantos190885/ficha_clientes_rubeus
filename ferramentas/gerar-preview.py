@@ -10,15 +10,20 @@ REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Imune / Isento"
 
 ESTRUTURA = [
     ("Nome *", "text", "pessoa.nome"), ("CNPJ *", "text", "pessoa.cnpj"),
+    ("CEP *", "text", "pessoa.cep"),
     ("Endereço sede completo *", "text", "pessoa.endereco"),
+    ("Número *", "text", "pessoa.numero"),
+    ("Complemento", "text", "contato.camposPersonalizados.campopersonalizado_122_compl_cont"),
+    ("Bairro *", "text", "pessoa.bairro"),
     ("Inscrição Estadual", "text", "contato.camposPersonalizados.campopersonalizado_127_compl_cont"),
     ("Inscrição Municipal", "text", "contato.camposPersonalizados.campopersonalizado_126_compl_cont"),
+    ("Cidade/Estado *", "text", "pessoa.cidade"),
     ("Faturamento bruto anual¹", FAIXAS, "processo.camposPersonalizados.campopersonalizado_554_compl_proc"),
     ("Regime de Tributação", REGIMES, "processo.camposPersonalizados.campopersonalizado_556_compl_proc"),
     ("Nome *", "text", "processo.camposPersonalizados.campopersonalizado_386_compl_proc"),
     ("E-mail *", "text", "processo.camposPersonalizados.campopersonalizado_388_compl_proc"),
     ("CPF *", "text", "processo.camposPersonalizados.campopersonalizado_564_compl_proc"),
-    ("Telefone *", "text", "processo.camposPersonalizados.campopersonalizado_453_compl_proc"),
+    ("Telefone *", "tel-iti", "processo.camposPersonalizados.campopersonalizado_453_compl_proc"),
     ("Nome do representante legal", "text", "processo.camposPersonalizados.rl_nome"),
     ("E-mail do representante legal", "text", "processo.camposPersonalizados.rl_email"),
     ("CPF do representante legal", "text", "processo.camposPersonalizados.rl_cpf"),
@@ -40,6 +45,9 @@ def campo(i, label, tipo, nome):
         ctrl = f'<select id="c{i}" name="{nome}">{ops}</select>'
     elif tipo == "textarea":
         ctrl = f'<textarea id="c{i}" name="{nome}"></textarea>'
+    elif tipo == "tel-iti":
+        ctrl = (f'<div class="iti"><div class="iti__flag-container"><div class="iti__selected-flag">BR</div></div>'
+                f'<input id="c{i}" name="{nome}" type="tel" style="padding-left:52px"></div>')
     else:
         ctrl = f'<input id="c{i}" name="{nome}" type="{tipo}">'
     return f'<div class="form-group"><label for="c{i}">{label}</label><div class="wrap" style="width:340px">{ctrl}</div></div>'

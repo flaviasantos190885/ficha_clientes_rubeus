@@ -743,37 +743,70 @@
     return (cadastro.pf = id);
   }
 
+  async function confereCliente(id) {
+    var r = await api('Contato/dadosPessoa', { id: id }).catch(function () { return null; });
+    var d = r && r.success && r.dados ? (Array.isArray(r.dados) ? r.dados[0] : r.dados) : null;
+    var ok = !!d && normalizar(d.nome) === normalizar(valorPorNome(VINCULO.empresaNome));
+    log.info('[ficha] confere cliente ' + id + ':', d ? d.nome : '(sem dados)', ok ? 'OK' : 'não bate');
+    return ok;
+  }
+
   async function obterPJDepoisDoEnvio() {
-    var id = procurarId(respostaEnvio, /^(idPessoa|pessoa|idContato|contato|idPessoaPrincipal)$/i, 0);
-    if (id) { log.info('[ficha] cliente pela resposta do envio:', id); return id; }
+    var daResposta = procurarId(respostaEnvio, /^(idPessoa|pessoa|idContato|contato|idPessoaPrincipal)$/i, 0);
+    if (daResposta && await confereCliente(daResposta)) return daResposta;
     var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
-    var codigos = cnpj ? [cnpj, formatar('cnpj', cnpj)] : [];
-    for (var t = 0; t < 10; t++) {
-      for (var i = 0; i < codigos.length; i++) {
-        var r = await api('Contato/dadosPessoa', { codigo: codigos[i] }).catch(function () { return null; });
-        id = idDaResposta(r);
-        if (id) { log.info('[ficha] cliente pelo CNPJ:', id); return id; }
-      }
-      await esperar(2000);
+    var buscas = [];
+    if (cnpj) {
+      var fmt = formatar('cnpj', cnpj);
+      buscas = [{ codigo: cnpj }, { codigo: fmt }, { cnpj: cnpj }, { cnpj: fmt }, { cpf: cnpj }];
     }
-    throw new Error('cliente não encontrado (nem na resposta do envio, nem pelo CNPJ)');
+    for (var t = 0; t < 6; t++) {
+      for (var i = 0; i < buscas.length; i++) {
+        var r = await api('Contato/dadosPessoa', JSON.parse(JSON.stringify(buscas[i]))).catch(function () { return null; });
+        var id = idDaResposta(r);
+        if (id) { log.info('[ficha] cliente encontrado por', JSON.stringify(buscas[i]), '->', id); return id; }
+      }
+      if (window.RBLib && RBLib.api && RBLib.api.buscarContatos) {
+        try {
+          var nome = valorPorNome(VINCULO.empresaNome);
+          var res = RBLib.api.buscarContatos({ nome: nome }, '', 'local', false);
+          var lista = res && res.success && res.dados ? (Array.isArray(res.dados) ? res.dados : [res.dados]) : [];
+          var exato = lista.filter(function (c) { return normalizar(c.nome) === normalizar(nome); });
+          if (exato.length) {
+            exato.sort(function (x, y) { return Number(y.id) - Number(x.id); });
+            log.info('[ficha] cliente encontrado pelo nome:', exato[0].id, '(' + exato.length + ' com esse nome)');
+            return String(exato[0].id);
+          }
+        } catch (e) { log.aviso('[ficha] busca por nome falhou:', e); }
+      }
+      await esperar(2500);
+    }
+    throw new Error('cliente não encontrado (resposta do envio, CNPJ e nome)');
   }
 
   async function aguardarRegistro(pj) {
     var direto = procurarId(respostaEnvio, /^(idOportunidade|idRegistro|registro|oportunidade)$/i, 0);
     if (direto) { log.info('[ficha] registro pela resposta do envio:', direto); return direto; }
     var inicio = Date.now();
+    var maisRecente = null;
+    var tentativa = 0;
     while (Date.now() - inicio < 60000) {
       var corpo = { id: pj };
       if (VINCULO.processo) corpo.processo = VINCULO.processo;
       var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
       var lista = r && r.success && Array.isArray(r.dados) ? r.dados : [];
+      if (tentativa++ === 0) log.info('[ficha] listarOportunidades:', lista.length, 'registro(s)', lista.slice(0, 5).map(function (x) { return { id: x.id, cod: x.codigoRegistro, processo: x.processo || x.idProcesso }; }));
       for (var i = 0; i < lista.length; i++) {
-        if (lista[i].codigoRegistro === cadastro.cod) { log.info('[ficha] registro encontrado:', lista[i].id); return String(lista[i].id); }
+        if (lista[i].codigoRegistro === cadastro.cod) { log.info('[ficha] registro encontrado pelo código:', lista[i].id); return String(lista[i].id); }
+        if (!maisRecente || Number(lista[i].id) > Number(maisRecente.id)) maisRecente = lista[i];
       }
-      await esperar(2000);
+      if (Date.now() - inicio > 30000 && VINCULO.processo && maisRecente) {
+        log.aviso('[ficha] código não encontrado; usando o registro mais novo do cliente:', maisRecente.id);
+        return String(maisRecente.id);
+      }
+      await esperar(2500);
     }
-    throw new Error('registro não encontrado pelo codRegistro ' + cadastro.cod);
+    throw new Error('registro não encontrado (código ' + cadastro.cod + ')');
   }
 
   async function vincularNoRegistro(idRegistro) {

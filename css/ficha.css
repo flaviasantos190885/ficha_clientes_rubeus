@@ -34,6 +34,10 @@
 }
 .fc-secao small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }
 
+.fc-ficha .fc-linha:not([style*="none"]) { display: grid !important; }
+.fc-enviado .fc-container .fc-bloco:not([data-fc-bloco="0"]):not([data-fc-bloco="rodape"]),
+.fc-enviado .fc-bloco .fc-secao,
+.fc-enviado .fc-subtitulo-ficha { display: none !important; }
 .fc-ficha .fc-container {
   max-width: 760px !important;
   width: 100% !important;
@@ -43,7 +47,7 @@
 }
 
 .fc-ficha .fc-linha {
-  display: grid !important;
+  display: grid;
   grid-template-columns: var(--fc-largura-rotulo) 1fr;
   align-items: center;
   width: 100% !important;
@@ -100,8 +104,8 @@
 .fc-ficha .fc-linha.fc-tipo-textarea .fc-rotulo { border-right: 0; border-bottom: 1px solid var(--fc-borda); font-weight: 600 !important; }
 .fc-ficha .fc-linha.fc-tipo-textarea .fc-entrada { min-height: 160px; resize: vertical; }
 
-.fc-ficha .fc-linha.fc-tipo-checkbox,
-.fc-ficha .fc-linha.fc-tipo-radio { display: block !important; padding: 10px 12px !important; }
+.fc-ficha .fc-linha.fc-tipo-checkbox:not([style*="none"]),
+.fc-ficha .fc-linha.fc-tipo-radio:not([style*="none"]) { display: block !important; padding: 10px 12px !important; }
 .fc-ficha .fc-linha.fc-tipo-checkbox .fc-rotulo,
 .fc-ficha .fc-linha.fc-tipo-radio .fc-rotulo { background: none; border: 0; padding: 0 0 6px !important; }
 .fc-ficha .fc-linha.fc-tipo-checkbox .fc-entrada,
@@ -141,6 +145,3 @@
   .fc-ficha .fc-linha { break-inside: avoid; }
   .fc-secao { break-after: avoid; }
 }
-.fc-status { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,.15); max-width: 90vw; background: #eef6f6; border: 1px solid #0da6a6; color: #0a6e6e; }
-.fc-status-sucesso { background: #e9f9ee; border-color: #2e9e5b; color: #1f6e3f; }
-.fc-status-erro { background: #fdeeee; border-color: #d64545; color: #a12f2f; }

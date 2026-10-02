@@ -112,7 +112,7 @@
   function camposDe(raiz) {
     return Array.prototype.filter.call(
       raiz.querySelectorAll('input, select, textarea'),
-      function (el) { return IGNORAR.indexOf((el.type || '').toLowerCase()) === -1; }
+      function (el) { return IGNORAR.indexOf((el.type || '').toLowerCase()) === -1 && !el.hasAttribute('data-fc-ignorar') && !/^(evento\.codRegistro|contato\.id)$/.test(el.name || ''); }
     );
   }
 
@@ -630,54 +630,68 @@
       el = document.createElement('input');
       el.name = nome;
       el.style.display = 'none';
+      el.setAttribute('data-fc-ignorar', '1');
       formForm().appendChild(el);
     }
     return el;
   }
 
-  function aviso(msg, tipo) {
-    var c = document.getElementById('fc-status');
-    if (!c) {
-      c = document.createElement('div');
-      c.id = 'fc-status';
-      c.className = 'fc-status';
-      document.body.appendChild(c);
+  var respostaEnvio = null;
+
+  function procurarId(obj, chaves, prof) {
+    if (!obj || typeof obj !== 'object' || prof > 4) return '';
+    for (var k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      var v = obj[k];
+      if (chaves.test(k)) {
+        if (typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v))) return String(v);
+        if (v && typeof v === 'object' && v.id) return String(v.id);
+      }
     }
-    c.className = 'fc-status fc-status-' + (tipo || 'info');
-    c.textContent = msg;
-    c.style.display = msg ? '' : 'none';
-    if (tipo && tipo !== 'info') setTimeout(function () { c.style.display = 'none'; }, 8000);
+    for (var k2 in obj) {
+      if (obj[k2] && typeof obj[k2] === 'object') {
+        var r = procurarId(obj[k2], chaves, (prof || 0) + 1);
+        if (r) return r;
+      }
+    }
+    return '';
   }
 
-  async function obterPJ() {
-    if (cadastro.pj) return cadastro.pj;
-    var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
-    var codigos = cnpj ? [cnpj, formatar('cnpj', cnpj)] : [];
-    for (var i = 0; i < codigos.length; i++) {
-      var r = await api('Contato/dadosPessoa', { codigo: codigos[i] }).catch(function () { return null; });
-      var id = idDaResposta(r);
-      if (id) { console.log('[ficha] cliente encontrado pelo CNPJ:', id); return (cadastro.pj = id); }
-    }
-    var corpo = {
-      nome: valorPorNome(VINCULO.empresaNome),
-      naturezaJuridica: 2,
-      baseLegal: VINCULO.baseLegal,
-      assinaturas: VINCULO.assinaturas.map(function (a) { return { id: a }; })
-    };
-    var email = valorPorNome(VINCULO.email);
-    var tel = digitos(valorPorNome(VINCULO.telefone));
-    if (email) corpo.emailPrincipal = email;
-    if (tel) corpo.telefonePrincipal = tel;
-    if (cnpj) {
-      corpo.codigo = cnpj;
-      corpo.camposPersonalizados = {};
-      corpo.camposPersonalizados[VINCULO.campoCnpjContato] = cnpj;
-    }
-    var resp = await api('Contato/cadastro', corpo);
-    console.log('[ficha] cadastro do cliente (PJ):', resp);
-    var novo = idDaResposta(resp);
-    if (!novo) throw new Error('não foi possível cadastrar o cliente');
-    return (cadastro.pj = novo);
+  function guardarResposta(url, texto) {
+    if (!/sendEvent|sendForm|enviar|submit/i.test(String(url)) || /sendNavigation/i.test(String(url))) return;
+    try { respostaEnvio = JSON.parse(texto); } catch (e) { respostaEnvio = { bruto: String(texto).slice(0, 500) }; }
+    console.log('[ficha] resposta do envio do formulário:', url, respostaEnvio);
+  }
+
+  if (!window.__fcEscuta && typeof Proxy !== 'undefined') {
+    window.__fcEscuta = true;
+    var protoX = XMLHttpRequest.prototype;
+    protoX.open = new Proxy(protoX.open, {
+      apply: function (alvo, xhr, args) {
+        try { xhr.__fcUrl = args[1]; } catch (e) {}
+        return Reflect.apply(alvo, xhr, args);
+      }
+    });
+    protoX.send = new Proxy(protoX.send, {
+      apply: function (alvo, xhr, args) {
+        try {
+          xhr.addEventListener('load', function () {
+            try { guardarResposta(xhr.__fcUrl, xhr.responseText); } catch (e) {}
+          });
+        } catch (e) {}
+        return Reflect.apply(alvo, xhr, args);
+      }
+    });
+    window.fetch = new Proxy(window.fetch, {
+      apply: function (alvo, ctx, args) {
+        var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+        var p = Reflect.apply(alvo, window, args);
+        if (/sendEvent|sendForm|enviar|submit/i.test(url)) {
+          p.then(function (r) { r.clone().text().then(function (t) { guardarResposta(url, t); }); }).catch(function () {});
+        }
+        return p;
+      }
+    });
   }
 
   async function obterPF() {
@@ -700,40 +714,55 @@
     console.log('[ficha] cadastro do responsável (PF):', resp);
     var id = idDaResposta(resp);
     if (!id) throw new Error('não foi possível cadastrar o responsável');
-    if (id === cadastro.pj) throw new Error('o responsável caiu no mesmo contato do cliente (mesmo e-mail/telefone)');
     return (cadastro.pf = id);
   }
 
-  async function aguardarRegistro() {
+  async function obterPJDepoisDoEnvio() {
+    var id = procurarId(respostaEnvio, /^(idPessoa|pessoa|idContato|contato|idPessoaPrincipal)$/i, 0);
+    if (id) { console.log('[ficha] cliente pela resposta do envio:', id); return id; }
+    var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
+    var codigos = cnpj ? [cnpj, formatar('cnpj', cnpj)] : [];
+    for (var t = 0; t < 10; t++) {
+      for (var i = 0; i < codigos.length; i++) {
+        var r = await api('Contato/dadosPessoa', { codigo: codigos[i] }).catch(function () { return null; });
+        id = idDaResposta(r);
+        if (id) { console.log('[ficha] cliente pelo CNPJ:', id); return id; }
+      }
+      await esperar(2000);
+    }
+    throw new Error('cliente não encontrado (nem na resposta do envio, nem pelo CNPJ)');
+  }
+
+  async function aguardarRegistro(pj) {
+    var direto = procurarId(respostaEnvio, /^(idOportunidade|idRegistro|registro|oportunidade)$/i, 0);
+    if (direto) { console.log('[ficha] registro pela resposta do envio:', direto); return direto; }
     var inicio = Date.now();
     while (Date.now() - inicio < 60000) {
-      var corpo = { id: cadastro.pj };
+      var corpo = { id: pj };
       if (VINCULO.processo) corpo.processo = VINCULO.processo;
       var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
       var lista = r && r.success && Array.isArray(r.dados) ? r.dados : [];
       for (var i = 0; i < lista.length; i++) {
-        if (lista[i].codigoRegistro === cadastro.cod) return lista[i];
+        if (lista[i].codigoRegistro === cadastro.cod) { console.log('[ficha] registro encontrado:', lista[i].id); return String(lista[i].id); }
       }
       await esperar(2000);
     }
-    throw new Error('o registro não apareceu no CRM a tempo');
+    throw new Error('registro não encontrado pelo codRegistro ' + cadastro.cod);
   }
 
-  async function vincular(registro) {
-    var corpo = {
-      tipo: VINCULO.eventoVinculo,
-      pessoa: { id: cadastro.pj },
-      codRegistro: cadastro.cod,
-      pessoasSecundarias: [{ id: cadastro.pf, tipo: VINCULO.tipoPessoa }]
-    };
-    if (registro && registro.id) corpo.idOportunidade = registro.id;
-    for (var t = 1; t <= 10; t++) {
-      var r = await api('Evento/cadastro', JSON.parse(JSON.stringify(corpo))).catch(function () { return null; });
-      console.log('[ficha] vínculo, tentativa ' + t + ':', r);
-      if (r && r.success !== false) return r;
-      await esperar(2000);
-    }
-    throw new Error('falha no vínculo após 10 tentativas');
+  async function vincularNoRegistro(idRegistro) {
+    var reg = await api('Registro/dados', { id: idRegistro });
+    if (!reg || !reg.success || !reg.dados) throw new Error('Registro/dados falhou');
+    var pessoas = (Array.isArray(reg.dados.pessoas) ? reg.dados.pessoas : []).map(function (p) {
+      return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') };
+    });
+    var existente = pessoas.filter(function (p) { return p.id === String(cadastro.pf); })[0];
+    if (existente) existente.tipo = VINCULO.tipoPessoa;
+    else pessoas.push({ id: String(cadastro.pf), tipo: VINCULO.tipoPessoa, principal: '0' });
+    var r = await api('Oportunidade/alterarPessoas', { id: idRegistro, pessoas: pessoas });
+    console.log('[ficha] Oportunidade/alterarPessoas:', r);
+    if (!r || !r.success) throw new Error('alterarPessoas falhou');
+    return r;
   }
 
   function envioConcluido() {
@@ -751,7 +780,7 @@
     var inicio = Date.now();
     while (Date.now() - inicio < 30000) {
       await esperar(300);
-      if (envioConcluido()) return true;
+      if (envioConcluido()) { document.documentElement.classList.add('fc-enviado'); return true; }
       if (Date.now() - inicio > 1200 && barradoNaValidacao()) return false;
     }
     return true;
@@ -761,12 +790,8 @@
     await atualizarLink().catch(function () {});
     var comVinculo = RUBEUS.token !== 'COLE_O_TOKEN_AQUI' && !!valorPorNome(VINCULO.nome);
     if (comVinculo) {
-      aviso('Cadastrando cliente e responsável pelo projeto...');
       try {
-        await obterPJ();
         await obterPF();
-        campoOculto('contato.id').value = cadastro.pj;
-        campoOculto('evento.codRegistro').value = cadastro.cod;
       } catch (e) {
         console.warn('[ficha] seguindo sem vínculo:', e);
         comVinculo = false;
@@ -774,19 +799,17 @@
     } else {
       console.warn('[ficha] vínculo desligado (token não configurado ou responsável vazio)');
     }
-    aviso(comVinculo ? 'Enviando a ficha...' : '');
+    campoOculto('evento.codRegistro').value = cadastro.cod;
+    respostaEnvio = null;
     var ok = await envioNativo(btn);
-    if (!ok) { aviso(''); return; }
-    if (!comVinculo) { aviso(''); return; }
+    if (!ok || !comVinculo) return;
     try {
-      aviso('Aguardando o registro ser criado no CRM...');
-      var registro = await aguardarRegistro();
-      aviso('Vinculando o responsável pelo projeto...');
-      await vincular(registro);
-      aviso('Ficha enviada e responsável pelo projeto vinculado!', 'sucesso');
+      var pj = await obterPJDepoisDoEnvio();
+      var registro = await aguardarRegistro(pj);
+      await vincularNoRegistro(registro);
+      console.log('[ficha] responsável pelo projeto vinculado ao registro ' + registro);
     } catch (e) {
-      console.error('[ficha] erro no vínculo:', e);
-      aviso('Ficha enviada, mas não foi possível vincular o responsável. Vincule manualmente.', 'erro');
+      console.error('[ficha] não foi possível vincular o responsável:', e);
     }
   }
 
@@ -818,6 +841,7 @@
     document.addEventListener('click', function (e) {
       if (e.target.closest && e.target.closest('.rbReturnToFirstStep')) {
         cadastro = { cod: novoCodigo(), pj: '', pf: '', emAndamento: false, liberar: false };
+        document.documentElement.classList.remove('fc-enviado');
       }
     }, true);
   }

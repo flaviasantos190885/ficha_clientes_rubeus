@@ -313,6 +313,7 @@
     configurarCep();
     ajustarBandeira();
     configurarLink();
+    configurarExtras();
     configurarEnvio();
   }
 
@@ -656,7 +657,7 @@
       var rot = n.querySelector('.fc-rotulo');
       if (!rot) return;
       if (!atual) { atual = ['', [], '']; secoes.push(atual); }
-      atual[1].push([rot.textContent.replace(/\s*\*\s*$/, '').trim(), valorDoCampo(n)]);
+      atual[1].push([n.getAttribute('data-fc-ficha') || rot.textContent.replace(/\s*\*\s*$/, '').trim(), valorDoCampo(n)]);
     });
     return { v: 1, t: new Date().toISOString(), s: secoes.filter(function (x) { return x[1].length; }) };
   }
@@ -862,6 +863,25 @@
     });
   }
 
+  async function cadastrarPessoa(p) {
+    var corpo = {
+      nome: p.nome,
+      naturezaJuridica: 1,
+      baseLegal: VINCULO.baseLegal,
+      assinaturas: VINCULO.assinaturas.map(function (a) { return { id: a }; })
+    };
+    if (p.email) corpo.emailPrincipal = p.email;
+    if (digitos(p.telefone)) corpo.telefonePrincipal = digitos(p.telefone);
+    if (digitos(p.cpf)) corpo.cpf = digitos(p.cpf);
+    var resp = await api('Contato/cadastro', corpo);
+    log.info('[ficha] cadastro de ' + p.nome + ':', resp);
+    return idDaResposta(resp);
+  }
+
+  function idsResponsaveis() {
+    return [cadastro.pf].concat(cadastro.extras || []).filter(Boolean).map(String);
+  }
+
   async function obterPF() {
     if (cadastro.pf) return cadastro.pf;
     var nome = valorPorNome(VINCULO.nome);
@@ -983,7 +1003,9 @@
   }
 
   function jaVinculado(pessoas) {
-    return (pessoas || []).some(function (p) { return String(p.id) === String(cadastro.pf) && String(p.tipo) === VINCULO.tipoPessoa; });
+    return idsResponsaveis().every(function (id) {
+      return (pessoas || []).some(function (p) { return String(p.id) === id && String(p.tipo) === VINCULO.tipoPessoa; });
+    });
   }
 
   async function enviarEventoVinculo(idRegistro) {
@@ -992,7 +1014,7 @@
       pessoa: { id: cadastro.pj },
       codRegistro: cadastro.cod,
       idOportunidade: idRegistro,
-      pessoasSecundarias: [{ id: cadastro.pf, tipo: VINCULO.tipoPessoa }]
+      pessoasSecundarias: idsResponsaveis().map(function (id) { return { id: id, tipo: VINCULO.tipoPessoa }; })
     };
     for (var t = 1; t <= 10; t++) {
       var r = await api('Evento/cadastro', JSON.parse(JSON.stringify(corpo))).catch(function (e) { return { success: false, erro: String(e) }; });
@@ -1013,9 +1035,11 @@
     var lista = (pessoas || []).map(function (p) {
       return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') };
     });
-    var existente = lista.filter(function (p) { return p.id === String(cadastro.pf); })[0];
-    if (existente) existente.tipo = VINCULO.tipoPessoa;
-    else lista.push({ id: String(cadastro.pf), tipo: VINCULO.tipoPessoa, principal: '0' });
+    idsResponsaveis().forEach(function (id) {
+      var existente = lista.filter(function (p) { return p.id === id; })[0];
+      if (existente) existente.tipo = VINCULO.tipoPessoa;
+      else lista.push({ id: id, tipo: VINCULO.tipoPessoa, principal: '0' });
+    });
     var r = await api('Oportunidade/alterarPessoas', { id: idRegistro, pessoas: lista });
     log.info('[ficha] Oportunidade/alterarPessoas:', r);
     if (!r || !r.success) throw new Error('vínculo recusado pela API');
@@ -1043,6 +1067,7 @@
   }
 
   async function finalizar(btn) {
+    if (!validarExtras()) return;
     try { localStorage.setItem('fc-log', '[]'); } catch (e) {}
     log.info('[ficha] clique em enviar | token configurado:', RUBEUS.token !== 'COLE_O_TOKEN_AQUI', '| responsável:', valorPorNome(VINCULO.nome), valorPorNome(VINCULO.email), valorPorNome(VINCULO.cpf), valorPorNome(VINCULO.telefone));
     await atualizarLink().catch(function () {});
@@ -1064,6 +1089,17 @@
         log.aviso('[ficha] seguindo sem vínculo:', e);
         comVinculo = false;
       }
+      if (comVinculo && !cadastro.extras) {
+        cadastro.extras = [];
+        var extras = dadosExtras();
+        for (var x = 0; x < extras.length; x++) {
+          try {
+            var idx = await cadastrarPessoa(extras[x]);
+            if (idx && idx !== cadastro.pj && idsResponsaveis().indexOf(idx) === -1) cadastro.extras.push(idx);
+            else log.aviso('[ficha] responsável extra não cadastrado ou repetido:', extras[x].nome, idx);
+          } catch (e) { log.aviso('[ficha] erro no responsável extra ' + extras[x].nome + ':', e); }
+        }
+      }
     } else {
       log.aviso('[ficha] vínculo desligado (token não configurado ou responsável vazio)');
     }
@@ -1073,13 +1109,95 @@
     if (!ok || !comVinculo) return;
     try {
       var pj = await obterPJDepoisDoEnvio();
-      log.info('[ficha] código do registro:', cadastro.cod, '| cliente:', pj, '| responsável:', cadastro.pf);
+      log.info('[ficha] código do registro:', cadastro.cod, '| cliente:', pj, '| responsáveis:', idsResponsaveis().join(', '));
       var registro = await aguardarRegistro(pj);
       await vincularNoRegistro(registro);
       log.info('[ficha] responsável pelo projeto vinculado ao registro ' + registro);
     } catch (e) {
       log.erro('[ficha] não foi possível vincular o responsável:', e);
     }
+  }
+
+  var CAMPOS_EXTRA = [
+    { chave: 'nome', rotulo: 'Nome *', tipo: 'text' },
+    { chave: 'email', rotulo: 'E-mail *', tipo: 'email' },
+    { chave: 'cpf', rotulo: 'CPF', tipo: 'text' },
+    { chave: 'telefone', rotulo: 'Telefone', tipo: 'tel' }
+  ];
+
+  function numerarExtras() {
+    Array.prototype.forEach.call(document.querySelectorAll('.fc-extra'), function (b, i) {
+      var n = i + 2;
+      b.querySelector('.fc-extra-titulo').textContent = 'Responsável pelo projeto ' + n;
+      Array.prototype.forEach.call(b.querySelectorAll('.fc-linha'), function (l) {
+        l.setAttribute('data-fc-ficha', l.getAttribute('data-fc-base') + ' (' + n + 'º responsável)');
+      });
+    });
+  }
+
+  function novoExtra() {
+    var bloco = document.createElement('div');
+    bloco.className = 'fc-extra';
+    bloco.innerHTML = '<div class="fc-extra-cab"><span class="fc-extra-titulo"></span>' +
+      '<button type="button" class="fc-extra-remover">Remover</button></div>' +
+      CAMPOS_EXTRA.map(function (c) {
+        return '<div class="fc-linha fc-tipo-' + c.tipo + '" data-fc-base="' + c.rotulo.replace(' *', '') + '">' +
+          '<label class="fc-rotulo">' + c.rotulo + '</label>' +
+          '<div><input class="fc-entrada" type="' + c.tipo + '" data-extra="' + c.chave + '" autocomplete="off"></div></div>';
+      }).join('');
+    var add = document.getElementById('fc-add-resp');
+    add.parentNode.insertBefore(bloco, add);
+    bloco.querySelector('.fc-extra-remover').addEventListener('click', function () {
+      bloco.remove();
+      numerarExtras();
+      atualizarLink();
+    });
+    numerarExtras();
+    processar();
+    bloco.querySelector('input').focus();
+  }
+
+  function configurarExtras() {
+    if (document.getElementById('fc-add-resp')) return;
+    var ultimo = null;
+    [VINCULO.nome, VINCULO.email, VINCULO.cpf, VINCULO.telefone].forEach(function (n) {
+      var el = campoPorNome(n);
+      var l = el && el.closest('.fc-linha');
+      if (l) ultimo = l;
+    });
+    if (!ultimo) return;
+    var add = document.createElement('div');
+    add.id = 'fc-add-resp';
+    add.innerHTML = '<button type="button" class="fc-add-btn">+ Adicionar outro responsável pelo projeto</button>';
+    ultimo.parentNode.insertBefore(add, ultimo.nextSibling);
+    add.querySelector('button').addEventListener('click', novoExtra);
+  }
+
+  function dadosExtras() {
+    return Array.prototype.map.call(document.querySelectorAll('.fc-extra'), function (b) {
+      var p = {};
+      CAMPOS_EXTRA.forEach(function (c) { p[c.chave] = (b.querySelector('[data-extra="' + c.chave + '"]').value || '').trim(); });
+      p.bloco = b;
+      return p;
+    }).filter(function (p) { return p.nome || p.email || p.cpf || digitos(p.telefone); });
+  }
+
+  function validarExtras() {
+    var primeiro = null;
+    dadosExtras().forEach(function (p) {
+      [['nome', !p.nome], ['email', !p.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)], ['cpf', p.cpf && !cpfValido(p.cpf)]].forEach(function (r) {
+        var input = p.bloco.querySelector('[data-extra="' + r[0] + '"]');
+        var linha = input.closest('.fc-linha');
+        if (linha) linha.classList.toggle('fc-invalido', !!r[1]);
+        if (r[1] && !primeiro) primeiro = input;
+      });
+    });
+    if (primeiro) {
+      primeiro.focus();
+      primeiro.scrollIntoView({ block: 'center' });
+      return false;
+    }
+    return true;
   }
 
   function configurarEnvio() {
@@ -1111,6 +1229,7 @@
       if (e.target.closest && e.target.closest('.rbReturnToFirstStep')) {
         cadastro = { cod: novoCodigo(), pj: '', pf: '', emAndamento: false, liberar: false };
         document.documentElement.classList.remove('fc-enviado');
+        Array.prototype.forEach.call(document.querySelectorAll('.fc-extra'), function (b) { b.remove(); });
       }
     }, true);
   }

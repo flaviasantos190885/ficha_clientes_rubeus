@@ -146,3 +146,10 @@
   .fc-ficha .fc-linha { break-inside: avoid; }
   .fc-secao { break-after: avoid; }
 }
+#fc-add-resp { margin: 10px 0 0; }
+.fc-add-btn { background: #fff !important; color: var(--fc-verde) !important; border: 1px dashed var(--fc-verde) !important; border-radius: 4px !important; padding: 8px 14px !important; margin: 0 !important; font: inherit; font-size: 14px !important; height: auto !important; line-height: 1.4 !important; box-shadow: none !important; text-transform: none !important; cursor: pointer; }
+.fc-add-btn:hover { background: #eef7f6 !important; }
+.fc-extra { margin-top: 14px; }
+.fc-extra-cab { display: flex; justify-content: space-between; align-items: center; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--fc-verde); }
+.fc-extra-remover { background: none !important; border: 0 !important; color: #a12f2f !important; padding: 0 !important; margin: 0 !important; height: auto !important; line-height: 1.4 !important; box-shadow: none !important; text-transform: none !important; cursor: pointer; text-decoration: underline; font: inherit; font-size: 13px !important; }
+.fc-enviado #fc-add-resp, .fc-enviado .fc-extra { display: none !important; }

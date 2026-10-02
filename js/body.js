@@ -513,7 +513,7 @@
           campo.blur();
           setTimeout(function () {
             var aceito = ok && normalizar(campo.value) === normalizar(d.localidade + ' - ' + d.uf) && !/invalid/i.test(campo.className);
-            console.log('[ficha] cidade:', campo.value, '| valueid:', idAntes, '->', campo.getAttribute('valueid'), '| aceita:', aceito);
+            log.info('[ficha] cidade:', campo.value, '| valueid:', idAntes, '->', campo.getAttribute('valueid'), '| aceita:', aceito);
             if (aceito) {
               travar(campo, true);
               depois();
@@ -555,31 +555,52 @@
     if (linha) linha.classList.toggle('fc-travado', sim);
   }
 
+  function consultarCep(cep) {
+    function viacep() {
+      return fetch('https://viacep.com.br/ws/' + cep + '/json/').then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || d.erro || !d.localidade) throw new Error('ViaCEP sem resultado');
+        return { logradouro: d.logradouro, bairro: d.bairro, localidade: d.localidade, uf: d.uf, fonte: 'ViaCEP' };
+      });
+    }
+    function brasilapi() {
+      return fetch('https://brasilapi.com.br/api/cep/v1/' + cep).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || !d.city) throw new Error('BrasilAPI sem resultado');
+        return { logradouro: d.street, bairro: d.neighborhood, localidade: d.city, uf: d.state, fonte: 'BrasilAPI' };
+      });
+    }
+    return viacep().catch(function (e) {
+      if (log) log.aviso('[ficha] CEP ' + cep + ':', e, '- tentando BrasilAPI');
+      return brasilapi();
+    });
+  }
+
   function buscarCep(cep) {
     avisoCep('Buscando endereço...');
-    fetch('https://viacep.com.br/ws/' + cep + '/json/')
-      .then(function (r) { return r.json(); })
+    consultarCep(cep)
       .then(function (d) {
+        if (log) log.info('[ficha] CEP ' + cep + ' (' + d.fonte + '):', d.logradouro, '|', d.bairro, '|', d.localidade + ' - ' + d.uf);
         mostrarEndereco(true);
-        var cid = campoPorNome(ENDERECO.cidade);
-        if (cid) travar(cid, false);
-        if (!d || d.erro) { avisoCep('CEP não encontrado. Preencha o endereço manualmente.'); return; }
         avisoCep('');
         var rua = campoPorNome(ENDERECO.rua);
         var bairro = campoPorNome(ENDERECO.bairro);
         var cidade = campoPorNome(ENDERECO.cidade);
         var numero = campoPorNome(ENDERECO.numero);
+        if (cidade) travar(cidade, false);
         if (rua && d.logradouro) { definirValor(rua, d.logradouro); validarCampo(rua); }
         if (bairro && d.bairro) { definirValor(bairro, d.bairro); validarCampo(bairro); }
         var focarNumero = function () { if (numero) setTimeout(function () { numero.focus(); }, 50); };
         if (cidade && d.localidade) preencherCidade(cidade, d, focarNumero);
         else focarNumero();
       })
-      .catch(function () {
+      .catch(function (e) {
+        if (log) log.aviso('[ficha] CEP ' + cep + ' não encontrado:', e);
         mostrarEndereco(true);
-        avisoCep('Não foi possível buscar o CEP. Preencha o endereço manualmente.');
+        var cid = campoPorNome(ENDERECO.cidade);
+        if (cid) travar(cid, false);
+        avisoCep('CEP não encontrado. Preencha o endereço manualmente.');
       });
   }
+
 
   function configurarCep() {
     var cep = campoPorNome(ENDERECO.cep);

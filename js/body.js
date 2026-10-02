@@ -904,6 +904,9 @@
     try { localStorage.setItem('fc-log', '[]'); } catch (e) {}
     log.info('[ficha] clique em enviar | token configurado:', RUBEUS.token !== 'COLE_O_TOKEN_AQUI', '| responsável:', valorPorNome(VINCULO.nome), valorPorNome(VINCULO.email), valorPorNome(VINCULO.cpf), valorPorNome(VINCULO.telefone));
     await atualizarLink().catch(function () {});
+    var campoLink = campoPorNome(LINK_CAMPO);
+    if (campoLink) log.info('[ficha] link da ficha gravado no campo 585 (' + campoLink.value.length + ' caracteres)');
+    else log.aviso('[ficha] o campo 585 (RpR - Link Ficha) não está no formulário: o link não será salvo');
     var comVinculo = RUBEUS.token !== 'COLE_O_TOKEN_AQUI' && !!valorPorNome(VINCULO.nome);
     if (comVinculo) {
       try {

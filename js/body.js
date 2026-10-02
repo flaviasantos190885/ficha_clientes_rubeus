@@ -297,22 +297,47 @@
     return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  function escolherOpcao(cidade, uf, tentativas, fim) {
-    var alvos = [cidade + ' - ' + uf, cidade + '/' + uf, cidade + ' / ' + uf, cidade + ' (' + uf + ')'].map(normalizar);
-    var ops = document.querySelectorAll('.autocomplete-content li, [role="option"], li, .dropdown-item');
+  function opcaoDaCidade(cidade, uf, campo) {
+    var nc = normalizar(cidade), nu = normalizar(uf);
+    var ops = document.querySelectorAll('li, [role="option"], .dropdown-item, a, div, span');
+    var melhor = null;
     for (var i = 0; i < ops.length; i++) {
       var o = ops[i];
-      if (!o.offsetParent || o.closest('.fc-bloco')) continue;
-      if (alvos.indexOf(normalizar(o.textContent)) !== -1) {
-        o.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        o.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-        o.click();
-        fim(true);
-        return;
-      }
+      if (!o.offsetParent || o === campo || o.contains(campo) || o.closest('.fc-bloco')) continue;
+      var t = normalizar(o.textContent);
+      if (!t || t.length > nc.length + 12 || t.indexOf(nc) !== 0) continue;
+      if (t !== nc && !new RegExp('(^|[^a-z])' + nu + '([^a-z]|$)').test(t.slice(nc.length))) continue;
+      if (!melhor || melhor.contains(o)) melhor = o;
     }
-    if (tentativas > 0) setTimeout(function () { escolherOpcao(cidade, uf, tentativas - 1, fim); }, 300);
+    return melhor;
+  }
+
+  function clicar(o) {
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(function (t) {
+      o.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
+    });
+    o.click();
+  }
+
+  function escolherOpcao(campo, cidade, uf, tentativas, fim) {
+    var o = opcaoDaCidade(cidade, uf, campo);
+    if (o) { clicar(o); fim(true); return; }
+    if (tentativas > 0) setTimeout(function () { escolherOpcao(campo, cidade, uf, tentativas - 1, fim); }, 300);
     else fim(false);
+  }
+
+  function digitar(campo, texto, pronto) {
+    var i = 0;
+    definirValor(campo, '');
+    (function proximo() {
+      if (i >= texto.length) { pronto(); return; }
+      var c = texto.charAt(i++);
+      campo.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: c }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(campo, campo.value + c);
+      campo.dispatchEvent(new InputEvent('input', { bubbles: true, data: c, inputType: 'insertText' }));
+      campo.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: c }));
+      setTimeout(proximo, 25);
+    })();
   }
 
   function tecla(el, tipo) {
@@ -329,19 +354,20 @@
   function preencherCidade(campo, d, depois) {
     travar(campo, false);
     campo.focus();
-    definirValor(campo, d.localidade);
-    tecla(campo, 'keydown');
-    tecla(campo, 'keyup');
-    escolherOpcao(d.localidade, d.uf, 12, function (ok) {
-      if (ok) {
+    digitar(campo, d.localidade, function () {
+      escolherOpcao(campo, d.localidade, d.uf, 12, function (ok) {
         setTimeout(function () {
-          campo.blur();
-          travar(campo, true);
-          depois();
-        }, 200);
-      } else {
-        avisoCep('Selecione a cidade na lista do campo Cidade/Estado.');
-      }
+          var aceito = ok && campo.value && !/invalid/i.test(campo.className);
+          if (aceito) {
+            travar(campo, true);
+            depois();
+          } else {
+            console.log('[ficha] cidade não selecionada automaticamente:', d.localidade, d.uf);
+            campo.focus();
+            avisoCep('Selecione a cidade na lista do campo Cidade/Estado.');
+          }
+        }, 400);
+      });
     });
   }
 

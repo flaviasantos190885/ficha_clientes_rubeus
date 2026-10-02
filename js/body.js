@@ -338,13 +338,13 @@
       var linha = el.closest('.fc-linha');
       for (var n = el; n && n !== linha; n = n.parentElement) {
         Array.prototype.forEach.call(n.parentElement.children, function (irmao) {
-          if (irmao === n || irmao.classList.contains('fc-rotulo') || irmao.contains(el)) return;
+          if (irmao === n || irmao.classList.contains('fc-rotulo') || irmao.classList.contains('fc-flag-br') || irmao.contains(el)) return;
           if (/error|erro|invalid|fc-aviso/i.test(irmao.className)) return;
           var pareceBandeira = /flag|country|iti|vti|dropdown|select|pais|ddi/i.test(String(irmao.className)) ||
             irmao.querySelector('img, svg, [class*="flag"]') || /^\s*\+?\d{0,3}\s*$/.test(irmao.textContent) && irmao.textContent.trim();
           if (pareceBandeira) {
             irmao.classList.add('fc-bandeira');
-            el.dataset.fcSemMascara = '1';
+            if (!el.dataset.extra) el.dataset.fcSemMascara = '1';
             var largura = irmao.getBoundingClientRect().width;
             if (largura > 0 && largura < 200) el.style.setProperty('padding-left', Math.round(largura + 10) + 'px', 'important');
           }
@@ -969,6 +969,13 @@
     throw new Error('cliente não encontrado (resposta do envio, CNPJ e nome)');
   }
 
+  async function registrosDoCliente(pj) {
+    var corpo = { id: pj };
+    if (VINCULO.processo) corpo.processo = VINCULO.processo;
+    var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
+    return r && r.success && Array.isArray(r.dados) ? r.dados : (r && r.success ? [] : null);
+  }
+
   async function aguardarRegistro(pj) {
     var direto = procurarId(respostaEnvio, /^(idOportunidade|idRegistro|registro|oportunidade)$/i, 0);
     if (direto) { log.info('[ficha] registro pela resposta do envio:', direto); return direto; }
@@ -976,10 +983,15 @@
     var maisRecente = null;
     var tentativa = 0;
     while (Date.now() - inicio < 120000) {
-      var corpo = { id: pj };
-      if (VINCULO.processo) corpo.processo = VINCULO.processo;
-      var r = await api('Contato/listarOportunidades', corpo).catch(function () { return null; });
-      var lista = r && r.success && Array.isArray(r.dados) ? r.dados : [];
+      var lista = (await registrosDoCliente(pj)) || [];
+      if (cadastro.antes && cadastro.pjAntes === String(pj)) {
+        var novos = lista.filter(function (x) { return cadastro.antes.indexOf(String(x.id)) === -1; });
+        if (novos.length) {
+          novos.sort(function (a, b) { return Number(b.id) - Number(a.id); });
+          log.info('[ficha] registro novo encontrado em ' + Math.round((Date.now() - inicio) / 1000) + 's:', novos[0].id);
+          return String(novos[0].id);
+        }
+      }
       if (tentativa++ % 6 === 0) log.info('[ficha] tentativa ' + tentativa + ' |','[ficha] listarOportunidades:', lista.length, 'registro(s)', lista.slice(0, 5).map(function (x) { return { id: x.id, cod: x.codigoRegistro, processo: x.processo || x.idProcesso }; }));
       for (var i = 0; i < lista.length; i++) {
         if (lista[i].codigoRegistro === cadastro.cod) { log.info('[ficha] registro encontrado pelo código:', lista[i].id); return String(lista[i].id); }
@@ -989,7 +1001,7 @@
         log.aviso('[ficha] código não encontrado; usando o registro mais novo do cliente:', maisRecente.id);
         return String(maisRecente.id);
       }
-      await esperar(2500);
+      await esperar(1500);
     }
     throw new Error('registro não encontrado (código ' + cadastro.cod + ')');
   }
@@ -1025,7 +1037,7 @@
 
   async function vincularNoRegistro(idRegistro) {
     var okEvento = await enviarEventoVinculo(idRegistro);
-    await esperar(4000);
+    await esperar(2500);
     var pessoas = await pessoasDoRegistro(idRegistro);
     log.info('[ficha] pessoas no registro depois do evento:', (pessoas || []).map(function (p) { return { id: p.id, tipo: p.tipo }; }));
     if (jaVinculado(pessoas)) return;
@@ -1076,7 +1088,15 @@
     if (comVinculo) {
       try {
         cadastro.pj = cadastro.pj || await obterPJAntesDoEnvio();
-        if (cadastro.pj) campoOculto('contato.id').value = cadastro.pj;
+        if (cadastro.pj) {
+          campoOculto('contato.id').value = cadastro.pj;
+          var antes = await registrosDoCliente(cadastro.pj);
+          if (antes) {
+            cadastro.antes = antes.map(function (x) { return String(x.id); });
+            cadastro.pjAntes = String(cadastro.pj);
+            log.info('[ficha] registros do cliente antes do envio:', cadastro.antes.length);
+          }
+        }
       } catch (e) {
         log.aviso('[ficha] cliente não definido antes do envio (segue pelo envio normal):', e);
       }
@@ -1180,10 +1200,35 @@
       numerar(papel);
       atualizarLink();
     });
+    var tel = bloco.querySelector('[data-extra="telefone"]');
+    if (tel) bandeiraBrasil(tel);
     numerar(papel);
     processar();
     if (focar) bloco.querySelector('input').focus();
     return bloco;
+  }
+
+  var BANDEIRA_BR = '<svg viewBox="0 0 28 20" width="22" height="16" aria-hidden="true"><rect width="28" height="20" rx="2" fill="#009c3b"/>' +
+    '<path d="M14 3 25 10 14 17 3 10z" fill="#ffdf00"/><circle cx="14" cy="10" r="4.2" fill="#002776"/></svg>';
+
+  function bandeiraBrasil(input) {
+    var iti = window.intlTelInput;
+    if (typeof iti === 'function') {
+      try {
+        iti(input, { initialCountry: 'br', preferredCountries: ['br'], separateDialCode: false, autoPlaceholder: 'off' });
+        input.setAttribute('placeholder', '(11) 96123-4567');
+        return;
+      } catch (e) {}
+    }
+    var caixa = document.createElement('div');
+    caixa.className = 'fc-tel-br';
+    input.parentNode.insertBefore(caixa, input);
+    caixa.appendChild(input);
+    var flag = document.createElement('span');
+    flag.className = 'fc-flag-br';
+    flag.innerHTML = BANDEIRA_BR;
+    caixa.insertBefore(flag, input);
+    input.setAttribute('placeholder', '(11) 96123-4567');
   }
 
   function botaoAdd(papel) {

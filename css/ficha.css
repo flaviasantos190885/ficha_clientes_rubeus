@@ -154,3 +154,6 @@
 .fc-extra-remover { background: none !important; border: 0 !important; color: #a12f2f !important; padding: 0 !important; margin: 0 !important; height: auto !important; line-height: 1.4 !important; box-shadow: none !important; text-transform: none !important; cursor: pointer; text-decoration: underline; font: inherit; font-size: 13px !important; }
 .fc-enviado .fc-add, .fc-enviado .fc-extra { display: none !important; }
 .fc-secao-pessoas .fc-pessoa:first-of-type { margin-top: 0; }
+.fc-tel-br { position: relative; width: 100%; }
+.fc-tel-br .fc-flag-br { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); z-index: 3; display: flex; align-items: center; pointer-events: none; }
+.fc-ficha .fc-linha .fc-tel-br .fc-entrada { padding-left: 42px !important; }

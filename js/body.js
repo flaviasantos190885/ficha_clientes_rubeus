@@ -119,9 +119,6 @@
         '<p class="fc-subtitulo-ficha">Preencha os dados abaixo para a formalização do contrato.</p>' +
         titulo('Dados cadastrais do cliente') },
     { antes: { rotulo: /respons[aá]vel pelo projeto/i, nome: /campopersonalizado_386_/ }, html: titulo('Responsável pelo projeto', '(Contato principal)') },
-    { antes: { rotulo: /representante/i }, html: titulo('Representante(s) legal(is)', '(responsável(is) pela assinatura)') },
-    { antes: { rotulo: /testemunha/i }, html: titulo('Testemunha(s)') },
-    { antes: { rotulo: /financeiro/i }, html: titulo('Responsável financeiro', '(recebimento de NFs)') },
     { antes: { rotulo: /^observa/i }, html:
         titulo('Informações gerais') +
         '<div class="fc-info">' +
@@ -313,7 +310,7 @@
     configurarCep();
     ajustarBandeira();
     configurarLink();
-    configurarExtras();
+    configurarPessoas();
     configurarEnvio();
   }
 
@@ -878,8 +875,9 @@
     return idDaResposta(resp);
   }
 
-  function idsResponsaveis() {
-    return [cadastro.pf].concat(cadastro.extras || []).filter(Boolean).map(String);
+  function vinculos() {
+    var lista = cadastro.pf ? [{ id: String(cadastro.pf), tipo: VINCULO.tipoPessoa, nome: valorPorNome(VINCULO.nome) }] : [];
+    return lista.concat(cadastro.extras || []);
   }
 
   async function obterPF() {
@@ -1003,8 +1001,8 @@
   }
 
   function jaVinculado(pessoas) {
-    return idsResponsaveis().every(function (id) {
-      return (pessoas || []).some(function (p) { return String(p.id) === id && String(p.tipo) === VINCULO.tipoPessoa; });
+    return vinculos().every(function (v) {
+      return (pessoas || []).some(function (p) { return String(p.id) === v.id && String(p.tipo) === v.tipo; });
     });
   }
 
@@ -1014,7 +1012,7 @@
       pessoa: { id: cadastro.pj },
       codRegistro: cadastro.cod,
       idOportunidade: idRegistro,
-      pessoasSecundarias: idsResponsaveis().map(function (id) { return { id: id, tipo: VINCULO.tipoPessoa }; })
+      pessoasSecundarias: vinculos().map(function (v) { return { id: v.id, tipo: v.tipo }; })
     };
     for (var t = 1; t <= 10; t++) {
       var r = await api('Evento/cadastro', JSON.parse(JSON.stringify(corpo))).catch(function (e) { return { success: false, erro: String(e) }; });
@@ -1035,10 +1033,10 @@
     var lista = (pessoas || []).map(function (p) {
       return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') };
     });
-    idsResponsaveis().forEach(function (id) {
-      var existente = lista.filter(function (p) { return p.id === id; })[0];
-      if (existente) existente.tipo = VINCULO.tipoPessoa;
-      else lista.push({ id: id, tipo: VINCULO.tipoPessoa, principal: '0' });
+    vinculos().forEach(function (v) {
+      var existente = lista.filter(function (p) { return p.id === v.id; })[0];
+      if (existente) existente.tipo = v.tipo;
+      else lista.push({ id: v.id, tipo: v.tipo, principal: '0' });
     });
     var r = await api('Oportunidade/alterarPessoas', { id: idRegistro, pessoas: lista });
     log.info('[ficha] Oportunidade/alterarPessoas:', r);
@@ -1067,7 +1065,7 @@
   }
 
   async function finalizar(btn) {
-    if (!validarExtras()) return;
+    if (!validarPessoas()) return;
     try { localStorage.setItem('fc-log', '[]'); } catch (e) {}
     log.info('[ficha] clique em enviar | token configurado:', RUBEUS.token !== 'COLE_O_TOKEN_AQUI', '| responsável:', valorPorNome(VINCULO.nome), valorPorNome(VINCULO.email), valorPorNome(VINCULO.cpf), valorPorNome(VINCULO.telefone));
     await atualizarLink().catch(function () {});
@@ -1091,13 +1089,15 @@
       }
       if (comVinculo && !cadastro.extras) {
         cadastro.extras = [];
-        var extras = dadosExtras();
+        var extras = dadosPessoas();
         for (var x = 0; x < extras.length; x++) {
           try {
             var idx = await cadastrarPessoa(extras[x]);
-            if (idx && idx !== cadastro.pj && idsResponsaveis().indexOf(idx) === -1) cadastro.extras.push(idx);
-            else log.aviso('[ficha] responsável extra não cadastrado ou repetido:', extras[x].nome, idx);
-          } catch (e) { log.aviso('[ficha] erro no responsável extra ' + extras[x].nome + ':', e); }
+            var ja = vinculos().filter(function (v) { return v.id === idx; })[0];
+            if (!idx || idx === cadastro.pj) log.aviso('[ficha] pessoa não cadastrada:', extras[x].nome, idx);
+            else if (ja) log.aviso('[ficha] ' + extras[x].nome + ' já está vinculado(a) como tipo ' + ja.tipo + '; mantido o primeiro tipo');
+            else cadastro.extras.push({ id: idx, tipo: extras[x].tipo, nome: extras[x].nome });
+          } catch (e) { log.aviso('[ficha] erro ao cadastrar ' + extras[x].nome + ':', e); }
         }
       }
     } else {
@@ -1109,56 +1109,94 @@
     if (!ok || !comVinculo) return;
     try {
       var pj = await obterPJDepoisDoEnvio();
-      log.info('[ficha] código do registro:', cadastro.cod, '| cliente:', pj, '| responsáveis:', idsResponsaveis().join(', '));
+      log.info('[ficha] código do registro:', cadastro.cod, '| cliente:', pj, '| vínculos:', vinculos().map(function (v) { return v.nome + ' (' + v.id + ', tipo ' + v.tipo + ')'; }).join('; '));
       var registro = await aguardarRegistro(pj);
       await vincularNoRegistro(registro);
-      log.info('[ficha] responsável pelo projeto vinculado ao registro ' + registro);
+      log.info('[ficha] ' + vinculos().length + ' pessoa(s) vinculada(s) ao registro ' + registro);
     } catch (e) {
       log.erro('[ficha] não foi possível vincular o responsável:', e);
     }
   }
 
-  var CAMPOS_EXTRA = [
-    { chave: 'nome', rotulo: 'Nome *', tipo: 'text' },
-    { chave: 'email', rotulo: 'E-mail *', tipo: 'email' },
-    { chave: 'cpf', rotulo: 'CPF', tipo: 'text' },
-    { chave: 'telefone', rotulo: 'Telefone', tipo: 'tel' }
+  var CAMPOS_PESSOA = {
+    nome: { rotulo: 'Nome', tipo: 'text' },
+    email: { rotulo: 'E-mail', tipo: 'email' },
+    cpf: { rotulo: 'CPF', tipo: 'text' },
+    telefone: { rotulo: 'Telefone', tipo: 'tel' }
+  };
+
+  var PAPEIS = [
+    { id: 'projeto', nome: 'Responsável pelo projeto', tipo: '93', campos: ['nome', 'email', 'cpf', 'telefone'],
+      obrigatorios: ['nome', 'email'], usaCamposRubeus: true, botao: '+ Adicionar outro responsável pelo projeto' },
+    { id: 'legal', nome: 'Representante legal', titulo: 'Representante(s) legal(is)', detalhe: '(responsável(is) pela assinatura)',
+      tipo: '82', campos: ['nome', 'email', 'cpf', 'telefone'], obrigatorios: ['nome', 'email', 'cpf'], primeiroObrigatorio: true,
+      botao: '+ Adicionar outro representante legal' },
+    { id: 'testemunha', nome: 'Testemunha', titulo: 'Testemunha(s)', tipo: '2', campos: ['nome', 'email', 'cpf', 'telefone'],
+      obrigatorios: ['nome', 'email', 'cpf'], primeiroObrigatorio: true, botao: '+ Adicionar outra testemunha' },
+    { id: 'financeiro', nome: 'Responsável financeiro', titulo: 'Responsável financeiro', detalhe: '(recebimento de NFs)',
+      tipo: '78', campos: ['nome', 'email', 'telefone'], obrigatorios: ['nome', 'email'], primeiroObrigatorio: true,
+      botao: '+ Adicionar outro responsável financeiro' }
   ];
 
-  function numerarExtras() {
-    Array.prototype.forEach.call(document.querySelectorAll('.fc-extra'), function (b, i) {
-      var n = i + 2;
-      b.querySelector('.fc-extra-titulo').textContent = 'Responsável pelo projeto ' + n;
+  function papelPorId(id) { return PAPEIS.filter(function (p) { return p.id === id; })[0]; }
+
+  function blocosDo(papel) { return document.querySelectorAll('.fc-pessoa[data-papel="' + papel.id + '"]'); }
+
+  function numerar(papel) {
+    Array.prototype.forEach.call(blocosDo(papel), function (b, i) {
+      var n = i + (papel.usaCamposRubeus ? 2 : 1);
+      var cab = b.querySelector('.fc-extra-cab');
+      cab.style.display = n > 1 ? '' : 'none';
+      b.querySelector('.fc-extra-titulo').textContent = papel.nome + ' ' + n;
       Array.prototype.forEach.call(b.querySelectorAll('.fc-linha'), function (l) {
-        l.setAttribute('data-fc-ficha', l.getAttribute('data-fc-base') + ' (' + n + 'º responsável)');
+        var base = l.getAttribute('data-fc-base');
+        if (n > 1) l.setAttribute('data-fc-ficha', base + ' (' + n + 'º)');
+        else l.removeAttribute('data-fc-ficha');
       });
     });
   }
 
-  function novoExtra() {
+  function novoBloco(papel, focar) {
     var bloco = document.createElement('div');
-    bloco.className = 'fc-extra';
+    bloco.className = 'fc-pessoa fc-extra';
+    bloco.setAttribute('data-papel', papel.id);
     bloco.innerHTML = '<div class="fc-extra-cab"><span class="fc-extra-titulo"></span>' +
       '<button type="button" class="fc-extra-remover">Remover</button></div>' +
-      CAMPOS_EXTRA.map(function (c) {
-        return '<div class="fc-linha fc-tipo-' + c.tipo + '" data-fc-base="' + c.rotulo.replace(' *', '') + '">' +
-          '<label class="fc-rotulo">' + c.rotulo + '</label>' +
-          '<div><input class="fc-entrada" type="' + c.tipo + '" data-extra="' + c.chave + '" autocomplete="off"></div></div>';
+      papel.campos.map(function (c) {
+        var def = CAMPOS_PESSOA[c];
+        var obrig = papel.obrigatorios.indexOf(c) !== -1;
+        return '<div class="fc-linha fc-tipo-' + def.tipo + '" data-fc-base="' + def.rotulo + '">' +
+          '<label class="fc-rotulo">' + def.rotulo + (obrig ? ' *' : '') + '</label>' +
+          '<div><input class="fc-entrada" type="' + def.tipo + '" data-extra="' + c + '" autocomplete="off"></div></div>';
       }).join('');
-    var add = document.getElementById('fc-add-resp');
+    var add = document.querySelector('.fc-add[data-papel="' + papel.id + '"]');
     add.parentNode.insertBefore(bloco, add);
+    bloco.addEventListener('input', function (e) {
+      var l = e.target.closest('.fc-linha');
+      if (l) l.classList.remove('fc-invalido');
+    });
     bloco.querySelector('.fc-extra-remover').addEventListener('click', function () {
       bloco.remove();
-      numerarExtras();
+      numerar(papel);
       atualizarLink();
     });
-    numerarExtras();
+    numerar(papel);
     processar();
-    bloco.querySelector('input').focus();
+    if (focar) bloco.querySelector('input').focus();
+    return bloco;
   }
 
-  function configurarExtras() {
-    if (document.getElementById('fc-add-resp')) return;
+  function botaoAdd(papel) {
+    var add = document.createElement('div');
+    add.className = 'fc-add';
+    add.setAttribute('data-papel', papel.id);
+    add.innerHTML = '<button type="button" class="fc-add-btn">' + papel.botao + '</button>';
+    add.querySelector('button').addEventListener('click', function () { novoBloco(papel, true); });
+    return add;
+  }
+
+  function configurarPessoas() {
+    if (document.querySelector('.fc-add')) return;
     var ultimo = null;
     [VINCULO.nome, VINCULO.email, VINCULO.cpf, VINCULO.telefone].forEach(function (n) {
       var el = campoPorNome(n);
@@ -1166,30 +1204,51 @@
       if (l) ultimo = l;
     });
     if (!ultimo) return;
-    var add = document.createElement('div');
-    add.id = 'fc-add-resp';
-    add.innerHTML = '<button type="button" class="fc-add-btn">+ Adicionar outro responsável pelo projeto</button>';
-    ultimo.parentNode.insertBefore(add, ultimo.nextSibling);
-    add.querySelector('button').addEventListener('click', novoExtra);
+    var ref = ultimo;
+    PAPEIS.forEach(function (papel) {
+      var add = botaoAdd(papel);
+      if (papel.usaCamposRubeus) {
+        ref.parentNode.insertBefore(add, ref.nextSibling);
+        ref = add;
+        return;
+      }
+      var secao = criarBloco('papel-' + papel.id, titulo(papel.titulo, papel.detalhe));
+      secao.classList.add('fc-secao-pessoas');
+      secao.appendChild(add);
+      ref.parentNode.insertBefore(secao, ref.nextSibling);
+      ref = secao;
+      novoBloco(papel, false);
+    });
   }
 
-  function dadosExtras() {
-    return Array.prototype.map.call(document.querySelectorAll('.fc-extra'), function (b) {
-      var p = {};
-      CAMPOS_EXTRA.forEach(function (c) { p[c.chave] = (b.querySelector('[data-extra="' + c.chave + '"]').value || '').trim(); });
-      p.bloco = b;
+  function dadosPessoas() {
+    return Array.prototype.map.call(document.querySelectorAll('.fc-pessoa'), function (b) {
+      var papel = papelPorId(b.getAttribute('data-papel'));
+      var p = { papel: papel, tipo: papel.tipo, bloco: b };
+      papel.campos.forEach(function (c) { p[c] = (b.querySelector('[data-extra="' + c + '"]').value || '').trim(); });
       return p;
-    }).filter(function (p) { return p.nome || p.email || p.cpf || digitos(p.telefone); });
+    }).filter(function (p) { return p.nome || p.email || (p.cpf && digitos(p.cpf)) || digitos(p.telefone || ''); });
   }
 
-  function validarExtras() {
+  function validarPessoas() {
     var primeiro = null;
-    dadosExtras().forEach(function (p) {
-      [['nome', !p.nome], ['email', !p.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)], ['cpf', p.cpf && !cpfValido(p.cpf)]].forEach(function (r) {
-        var input = p.bloco.querySelector('[data-extra="' + r[0] + '"]');
+    Array.prototype.forEach.call(document.querySelectorAll('.fc-pessoa'), function (b, i) {
+      var papel = papelPorId(b.getAttribute('data-papel'));
+      var primeiroDoPapel = blocosDo(papel)[0] === b;
+      var valores = {};
+      papel.campos.forEach(function (c) { valores[c] = (b.querySelector('[data-extra="' + c + '"]').value || '').trim(); });
+      var algum = papel.campos.some(function (c) { return c === 'telefone' || c === 'cpf' ? digitos(valores[c]) : valores[c]; });
+      var exigir = algum || (papel.primeiroObrigatorio && primeiroDoPapel);
+      papel.campos.forEach(function (c) {
+        var v = valores[c];
+        var erro = false;
+        if (exigir && papel.obrigatorios.indexOf(c) !== -1 && !v) erro = true;
+        if (v && c === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) erro = true;
+        if (v && c === 'cpf' && !cpfValido(v)) erro = true;
+        var input = b.querySelector('[data-extra="' + c + '"]');
         var linha = input.closest('.fc-linha');
-        if (linha) linha.classList.toggle('fc-invalido', !!r[1]);
-        if (r[1] && !primeiro) primeiro = input;
+        if (linha) linha.classList.toggle('fc-invalido', erro);
+        if (erro && !primeiro) primeiro = input;
       });
     });
     if (primeiro) {
@@ -1229,7 +1288,10 @@
       if (e.target.closest && e.target.closest('.rbReturnToFirstStep')) {
         cadastro = { cod: novoCodigo(), pj: '', pf: '', emAndamento: false, liberar: false };
         document.documentElement.classList.remove('fc-enviado');
-        Array.prototype.forEach.call(document.querySelectorAll('.fc-extra'), function (b) { b.remove(); });
+        Array.prototype.forEach.call(document.querySelectorAll('.fc-pessoa'), function (b) { b.remove(); });
+        Array.prototype.forEach.call(document.querySelectorAll('.fc-secao-pessoas'), function (b) { b.remove(); });
+        Array.prototype.forEach.call(document.querySelectorAll('.fc-add'), function (b) { b.remove(); });
+        setTimeout(processar, 300);
       }
     }, true);
   }

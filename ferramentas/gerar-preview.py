@@ -24,7 +24,7 @@ ESTRUTURA = [
     ("E-mail *", "text", "processo.camposPersonalizados.campopersonalizado_388_compl_proc"),
     ("CPF *", "text", "processo.camposPersonalizados.campopersonalizado_564_compl_proc"),
     ("Telefone *", "tel-iti", "processo.camposPersonalizados.campopersonalizado_453_compl_proc"),
-    ("Observações", "textarea", "processo.camposPersonalizados.obs"),
+    ("[COM] Observação", "textarea", "processo.camposPersonalizados.campopersonalizado_30_compl_proc"),
     ("RpR - Link Ficha (PDF)", "textarea", "processo.camposPersonalizados.campopersonalizado_585_compl_proc"),
 ]
 

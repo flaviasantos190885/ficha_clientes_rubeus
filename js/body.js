@@ -16,7 +16,7 @@
   }
 
   function mostrarFicha() {
-    var CSS = "\n  #fc-vis { --verde: #12857f; --vermelho: #c8323e; --borda: #e3e3e3; --texto: #2b2b2b; }\n  #fc-vis, #fc-vis * { box-sizing: border-box; }\n  #fc-vis { margin: 0; background: #ececec; font-family: 'Poppins', Arial, sans-serif; color: var(--texto); }\n  #fc-vis .acoes { max-width: 794px; margin: 16px auto 0; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; }\n  #fc-vis .acoes button { background: var(--verde); color: #fff; border: 0; border-radius: 4px; padding: 10px 18px; font: inherit; font-size: 14px; cursor: pointer; }\n  #fc-vis .folha { max-width: 794px; margin: 12px auto 32px; background: #fff; padding: 0 56px 32px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }\n  #fc-vis .faixa { height: 10px; margin: 0 -56px 28px; background: linear-gradient(90deg, var(--verde) 0 30%, #fff 30% 34%, var(--vermelho) 34% 66%, #fff 66% 70%, var(--verde) 70%); }\n  #fc-vis .cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }\n  #fc-vis .logo { height: 46px; width: auto; display: block; }\n  #fc-vis .site { font-size: 20px; color: #555; }\n  #fc-vis h2 { font-size: 15px; font-weight: 600; color: var(--verde); text-decoration: underline; text-underline-offset: 3px; margin: 22px 0 4px; }\n  #fc-vis h2 small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }\n  #fc-vis table { width: 100%; border-collapse: collapse; font-size: 13.5px; }\n  #fc-vis td { border: 1px solid var(--borda); padding: 5px 8px; vertical-align: top; }\n  #fc-vis td:first-child { width: 33%; color: #555; }\n  #fc-vis td.vazio { color: #aaa; }\n  #fc-vis .info { border: 1px solid var(--borda); padding: 8px 10px; font-size: 13px; line-height: 1.55; text-align: justify; }\n  #fc-vis .info p { margin: 0; }\n  #fc-vis .nota { font-size: 11.5px; line-height: 1.5; margin-top: 18px; text-align: justify; }\n  #fc-vis .gerado { font-size: 11px; color: #888; margin-top: 10px; }\n  #fc-vis .rodape { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--borda); font-size: 11px; color: #666; }\n  #fc-vis .erro { max-width: 794px; margin: 40px auto; padding: 24px; background: #fff; text-align: center; }\n  #fc-vis .folha { position: relative; overflow: hidden; }\n  #fc-vis .folha > *:not(.hexagono) { position: relative; z-index: 1; }\n  #fc-vis .faixa-img { display: block; width: calc(100% + 112px); max-width: none; margin: 0 -56px 28px; height: auto; }\n  #fc-vis .hexagono { position: absolute; right: 0; top: 30%; width: 32%; height: auto; z-index: 0; pointer-events: none; }\n  #fc-vis .faixa-base { display: block; width: calc(100% + 112px); max-width: none; margin: 16px -56px -32px; height: auto; }\n  #fc-vis .rodape div { display: flex; align-items: center; gap: 8px; }\n  #fc-vis .rodape img { width: 28px; height: 28px; flex: none; }\n  #fc-vis td { background: rgba(255,255,255,.85); }\n  @media print {\n    body > *:not(#fc-vis) { display: none !important; }\n    #fc-vis { position: static !important; overflow: visible !important; background: #fff; }\n    #fc-vis .acoes { display: none; }\n    #fc-vis .folha { box-shadow: none; margin: 0; max-width: none; padding: 0 0 16px; }\n    #fc-vis .faixa-img, #fc-vis .faixa-base { width: 100%; margin-left: 0; margin-right: 0; }\n    #fc-vis .faixa-base { margin-bottom: 0; }\n    #fc-vis .folha > *:not(.hexagono) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n    #fc-vis tr, #fc-vis h2 { break-inside: avoid; }\n    #fc-vis h2 { break-after: avoid; }\n    @page { size: A4; margin: 12mm 14mm; }\n  }\n";
+    var CSS = "\n  #fc-vis { --verde: #12857f; --vermelho: #c8323e; --borda: #e3e3e3; --texto: #2b2b2b; }\n  #fc-vis, #fc-vis * { box-sizing: border-box; }\n  #fc-vis { margin: 0; background: #ececec; font-family: 'Poppins', Arial, sans-serif; color: var(--texto); }\n  #fc-vis .acoes { max-width: 794px; margin: 16px auto 0; padding: 0 16px; display: flex; justify-content: flex-end; gap: 8px; }\n  #fc-vis .acoes button { background: var(--verde); color: #fff; border: 0; border-radius: 4px; padding: 10px 18px; font: inherit; font-size: 14px; cursor: pointer; }\n  #fc-vis .folha { max-width: 794px; margin: 12px auto 32px; background: #fff; padding: 0 56px 32px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }\n  #fc-vis .faixa { height: 10px; margin: 0 -56px 28px; background: linear-gradient(90deg, var(--verde) 0 30%, #fff 30% 34%, var(--vermelho) 34% 66%, #fff 66% 70%, var(--verde) 70%); }\n  #fc-vis .cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }\n  #fc-vis .logo { height: 46px; width: auto; display: block; }\n  #fc-vis .site { font-size: 20px; color: #555; }\n  #fc-vis h2 { font-size: 15px; font-weight: 600; color: var(--verde); text-decoration: underline; text-underline-offset: 3px; margin: 22px 0 4px; }\n  #fc-vis h2 small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }\n  #fc-vis table { width: 100%; border-collapse: collapse; font-size: 13.5px; }\n  #fc-vis td { border: 1px solid var(--borda); padding: 5px 8px; vertical-align: top; }\n  #fc-vis td:first-child { width: 33%; color: #555; }\n  #fc-vis td.vazio { color: #aaa; }\n  #fc-vis .info { border: 1px solid var(--borda); padding: 8px 10px; font-size: 13px; line-height: 1.55; text-align: justify; }\n  #fc-vis .info p { margin: 0; }\n  #fc-vis .info a { color: #1a56c4; font-weight: 600; }\n  #fc-vis .nota { font-size: 11.5px; line-height: 1.5; margin-top: 18px; text-align: justify; }\n  #fc-vis .gerado { font-size: 11px; color: #888; margin-top: 10px; }\n  #fc-vis .rodape { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--borda); font-size: 11px; color: #666; }\n  #fc-vis .erro { max-width: 794px; margin: 40px auto; padding: 24px; background: #fff; text-align: center; }\n  #fc-vis .folha { position: relative; overflow: hidden; }\n  #fc-vis .folha > *:not(.hexagono) { position: relative; z-index: 1; }\n  #fc-vis .faixa-img { display: block; width: calc(100% + 112px); max-width: none; margin: 0 -56px 28px; height: auto; }\n  #fc-vis .hexagono { position: absolute; right: 0; top: 30%; width: 32%; height: auto; z-index: 0; pointer-events: none; }\n  #fc-vis .faixa-base { display: block; width: calc(100% + 112px); max-width: none; margin: 16px -56px -32px; height: auto; }\n  #fc-vis .rodape div { display: flex; align-items: center; gap: 8px; }\n  #fc-vis .rodape img { width: 28px; height: 28px; flex: none; }\n  #fc-vis td { background: rgba(255,255,255,.85); }\n  @media print {\n    body > *:not(#fc-vis) { display: none !important; }\n    #fc-vis { position: static !important; overflow: visible !important; background: #fff; }\n    #fc-vis .acoes { display: none; }\n    #fc-vis .folha { box-shadow: none; margin: 0; max-width: none; padding: 0 0 16px; }\n    #fc-vis .faixa-img, #fc-vis .faixa-base { width: 100%; margin-left: 0; margin-right: 0; }\n    #fc-vis .faixa-base { margin-bottom: 0; }\n    #fc-vis .folha > *:not(.hexagono) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }\n    #fc-vis tr, #fc-vis h2 { break-inside: avoid; }\n    #fc-vis h2 { break-after: avoid; }\n    @page { size: A4; margin: 12mm 14mm; }\n  }\n";
 
     function iniciar() {
       if (document.getElementById('fc-vis')) return;
@@ -70,7 +70,7 @@
       if (/^informa/i.test(titulo)) {
         html += '<h2>Informações gerais</h2><div class="info">' +
           '<p>– Se ocorrer qualquer tipo de alteração cadastral, informe à Rubeus.</p>' +
-          '<p>– As informações são de uso estritamente confidencial, protegidas pelos parâmetros da legislação vigente.</p>' +
+          '<p>– As informações são de uso estritamente confidencial, protegidas pelos parâmetros da legislação vigente. Acesse a nossa <a href="https://rubeus.com.br/politica-de-privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>.</p>' +
           '<p>– A responsabilidade pelo preenchimento é exclusiva do declarante.</p></div>';
         titulo = '';
       }
@@ -119,7 +119,7 @@
         '<p class="fc-subtitulo-ficha">Preencha os dados abaixo para a formalização do contrato.</p>' +
         titulo('Dados cadastrais do cliente') },
     { antes: { rotulo: /respons[aá]vel pelo projeto/i, nome: /campopersonalizado_386_/ }, html: titulo('Responsável pelo projeto', '(Contato principal)') },
-    { antes: { rotulo: /^observa/i }, html:
+    { antes: { rotulo: /observa/i, nome: /campopersonalizado_30_compl_proc/ }, html:
         titulo('Informações gerais') +
         '<div class="fc-info">' +
           '<p>– Se ocorrer qualquer tipo de alteração cadastral, informe à Rubeus.</p>' +
@@ -242,7 +242,7 @@
     var n;
     while ((n = walker.nextNode())) {
       var partes = n.nodeValue.split(SEPARADOR);
-      var texto = partes[partes.length - 1].replace(SUFIXO, '').replace(/(\S)\*/, '$1 *');
+      var texto = partes[partes.length - 1].replace(/^\s*\[[^\]]*\]\s*/, '').replace(SUFIXO, '').replace(/(\S)\*/, '$1 *');
       if (texto !== n.nodeValue) {
         n.nodeValue = texto;
         return;
@@ -1147,15 +1147,15 @@
 
   var PAPEIS = [
     { id: 'projeto', nome: 'Responsável pelo projeto', tipo: '93', campos: ['nome', 'email', 'cpf', 'telefone'],
-      obrigatorios: ['nome', 'email'], usaCamposRubeus: true, botao: '+ Adicionar outro responsável pelo projeto' },
+      obrigatorios: ['nome', 'email'], usaCamposRubeus: true, botao: '+ Adicionar responsável pelo projeto' },
     { id: 'legal', nome: 'Representante legal', titulo: 'Representante(s) legal(is)', detalhe: '(responsável(is) pela assinatura)',
       tipo: '82', campos: ['nome', 'email', 'cpf', 'telefone'], obrigatorios: ['nome', 'email', 'cpf'], primeiroObrigatorio: true,
-      botao: '+ Adicionar outro representante legal' },
+      botao: '+ Adicionar representante legal' },
     { id: 'testemunha', nome: 'Testemunha', titulo: 'Testemunha(s)', tipo: '2', campos: ['nome', 'email', 'cpf', 'telefone'],
-      obrigatorios: ['nome', 'email', 'cpf'], primeiroObrigatorio: true, botao: '+ Adicionar outra testemunha' },
+      obrigatorios: ['nome', 'email', 'cpf'], primeiroObrigatorio: true, botao: '+ Adicionar testemunha' },
     { id: 'financeiro', nome: 'Responsável financeiro', titulo: 'Responsável financeiro', detalhe: '(recebimento de NFs)',
       tipo: '78', campos: ['nome', 'email', 'telefone'], obrigatorios: ['nome', 'email'], primeiroObrigatorio: true,
-      botao: '+ Adicionar outro responsável financeiro' }
+      botao: '+ Adicionar responsável financeiro' }
   ];
 
   function papelPorId(id) { return PAPEIS.filter(function (p) { return p.id === id; })[0]; }

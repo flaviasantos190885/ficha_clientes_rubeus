@@ -541,31 +541,38 @@
     });
   }
 
-  var fetchOriginal = window.fetch.bind(window);
-  if (!window.__fcInterceptado) {
+  var fetchNativo = window.fetch;
+  function fetchOriginal(entrada, opcoes) { return fetchNativo.call(window, entrada, opcoes); }
+  if (!window.__fcInterceptado && typeof Proxy !== 'undefined') {
     window.__fcInterceptado = true;
-    var abrir = XMLHttpRequest.prototype.open;
-    var enviar = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.open = function (metodo, url) {
-      this.__fcUrl = url;
-      return abrir.apply(this, arguments);
-    };
-    XMLHttpRequest.prototype.send = function (corpo) {
-      var xhr = this;
-      if (typeof corpo === 'string') console.log('[ficha] requisição:', xhr.__fcUrl, corpo.slice(0, 300));
-      if (!ehEnvioDoForm(xhr.__fcUrl, corpo)) return enviar.apply(xhr, arguments);
-      prepararCorpo(xhr.__fcUrl, corpo).then(function (novo) { enviar.call(xhr, novo); });
-    };
-    window.fetch = function (entrada, opcoes) {
-      var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
-      if (opcoes && typeof opcoes.body === 'string') console.log('[ficha] requisição:', url, opcoes.body.slice(0, 300));
-      if (opcoes && ehEnvioDoForm(url, opcoes.body)) {
-        return prepararCorpo(url, opcoes.body).then(function (novo) {
-          return fetchOriginal(entrada, Object.assign({}, opcoes, { body: novo }));
-        });
+    var proto = XMLHttpRequest.prototype;
+    proto.open = new Proxy(proto.open, {
+      apply: function (alvo, xhr, args) {
+        try { xhr.__fcUrl = args[1]; } catch (e) {}
+        return Reflect.apply(alvo, xhr, args);
       }
-      return fetchOriginal(entrada, opcoes);
-    };
+    });
+    proto.send = new Proxy(proto.send, {
+      apply: function (alvo, xhr, args) {
+        var corpo = args[0];
+        if (typeof corpo === 'string') console.log('[ficha] requisição:', xhr.__fcUrl, corpo.slice(0, 300));
+        if (!ehEnvioDoForm(xhr.__fcUrl, corpo)) return Reflect.apply(alvo, xhr, args);
+        prepararCorpo(xhr.__fcUrl, corpo).then(function (novo) { Reflect.apply(alvo, xhr, [novo]); });
+      }
+    });
+    window.fetch = new Proxy(fetchNativo, {
+      apply: function (alvo, ctx, args) {
+        var entrada = args[0], opcoes = args[1];
+        var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+        if (opcoes && typeof opcoes.body === 'string') console.log('[ficha] requisição:', url, opcoes.body.slice(0, 300));
+        if (opcoes && ehEnvioDoForm(url, opcoes.body)) {
+          return prepararCorpo(url, opcoes.body).then(function (novo) {
+            return Reflect.apply(alvo, window, [entrada, Object.assign({}, opcoes, { body: novo })]);
+          });
+        }
+        return Reflect.apply(alvo, window, args);
+      }
+    });
   }
 
   var agendado = null;

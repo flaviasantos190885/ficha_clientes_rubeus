@@ -751,7 +751,32 @@
     return ok;
   }
 
+  async function obterPJAntesDoEnvio() {
+    var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
+    if (!cnpj) return '';
+    var fmt = formatar('cnpj', cnpj);
+    var buscas = [{ codigo: cnpj }, { codigo: fmt }];
+    for (var i = 0; i < buscas.length; i++) {
+      var r = await api('Contato/dadosPessoa', JSON.parse(JSON.stringify(buscas[i]))).catch(function () { return null; });
+      var id = idDaResposta(r);
+      if (id) { log.info('[ficha] cliente já existe (CNPJ ' + buscas[i].codigo + '):', id); return id; }
+    }
+    var corpo = {
+      nome: valorPorNome(VINCULO.empresaNome),
+      codigo: cnpj,
+      naturezaJuridica: 2,
+      baseLegal: VINCULO.baseLegal,
+      assinaturas: VINCULO.assinaturas.map(function (a) { return { id: a }; }),
+      camposPersonalizados: {}
+    };
+    corpo.camposPersonalizados[VINCULO.campoCnpjContato] = cnpj;
+    var resp = await api('Contato/cadastro', corpo).catch(function () { return null; });
+    log.info('[ficha] cadastro do cliente só com nome e CNPJ:', resp);
+    return idDaResposta(resp);
+  }
+
   async function obterPJDepoisDoEnvio() {
+    if (cadastro.pj) return cadastro.pj;
     var daResposta = procurarId(respostaEnvio, /^(idPessoa|pessoa|idContato|contato|idPessoaPrincipal)$/i, 0);
     if (daResposta && await confereCliente(daResposta)) return daResposta;
     var cnpj = digitos(valorPorNome(VINCULO.empresaCnpj));
@@ -852,7 +877,14 @@
     var comVinculo = RUBEUS.token !== 'COLE_O_TOKEN_AQUI' && !!valorPorNome(VINCULO.nome);
     if (comVinculo) {
       try {
+        cadastro.pj = cadastro.pj || await obterPJAntesDoEnvio();
+        if (cadastro.pj) campoOculto('contato.id').value = cadastro.pj;
+      } catch (e) {
+        log.aviso('[ficha] cliente não definido antes do envio (segue pelo envio normal):', e);
+      }
+      try {
         await obterPF();
+        if (cadastro.pf === cadastro.pj) throw new Error('o responsável caiu no mesmo contato do cliente');
       } catch (e) {
         log.aviso('[ficha] seguindo sem vínculo:', e);
         comVinculo = false;

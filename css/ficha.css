@@ -14,12 +14,13 @@
 .fc-ficha body { font-family: 'Poppins', Arial, sans-serif; color: var(--fc-texto); }
 
 .fc-bloco { grid-column: 1 / -1; flex: 0 0 100%; width: 100%; }
-.fc-faixa {
-  height: 8px; margin-bottom: 24px;
-  background: linear-gradient(90deg, var(--fc-verde) 0 30%, transparent 30% 40%, var(--fc-vermelho) 40% 70%, transparent 70% 80%, var(--fc-verde) 80%);
-}
 .fc-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
 .fc-cabecalho img { height: 40px; width: auto; }
+.fc-faixa-img { display: block; width: 100%; height: auto; margin-bottom: 24px; }
+.fc-faixa-base { display: block; width: 100%; height: auto; margin-top: 8px; }
+.fc-rodape .fc-ico-img { width: 30px; height: 30px; flex: none; display: block; }
+#fc-hexagono { position: fixed; right: 0; top: 50%; transform: translateY(-50%); height: min(70vh, 620px); width: auto; z-index: 0; pointer-events: none; user-select: none; }
+.fc-ficha .fc-container { position: relative; z-index: 1; }
 .fc-logo-img { height: 46px; width: auto; display: block; }
 .fc-ficha .fc-container-pai > *:not(.fc-container) { max-width: 760px; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
 .fc-logo { font-size: 30px; font-weight: 600; color: var(--fc-verde); letter-spacing: -0.5px; }

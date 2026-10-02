@@ -16,7 +16,7 @@
   .folha { max-width: 794px; margin: 12px auto 32px; background: #fff; padding: 0 56px 32px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
   .faixa { height: 10px; margin: 0 -56px 28px; background: linear-gradient(90deg, var(--verde) 0 30%, #fff 30% 34%, var(--vermelho) 34% 66%, #fff 66% 70%, var(--verde) 70%); }
   .cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-  .logo { font-size: 30px; font-weight: 600; color: var(--verde); }
+  .logo { height: 46px; width: auto; display: block; }
   .site { font-size: 20px; color: #555; }
   h2 { font-size: 15px; font-weight: 600; color: var(--verde); text-decoration: underline; text-underline-offset: 3px; margin: 22px 0 4px; }
   h2 small { font-size: 13px; font-weight: 400; text-decoration: none; display: inline-block; }
@@ -76,7 +76,7 @@
 
   function montar(dados) {
   var html = '<div class="folha"><div class="faixa"></div>' +
-    '<div class="cab"><span class="logo">Rubeus</span><span class="site">rubeus.com.br</span></div>';
+    '<div class="cab"><img class="logo" src="../img/logo-rubeus.png" alt="Rubeus"><span class="site">rubeus.com.br</span></div>';
   dados.s.forEach(function (sec) {
     var titulo = sec[0], campos = sec[1], detalhe = sec[2];
     if (/^informa/i.test(titulo)) {

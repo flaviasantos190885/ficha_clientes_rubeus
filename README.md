@@ -73,3 +73,12 @@ O campo `campopersonalizado_585_compl_proc` (texto longo, fica oculto no form) r
 a nenhum servidor). A página monta a ficha no layout do PDF e tem o botão "Salvar em PDF / Imprimir".
 O endereço base fica em `LINK_BASE` no `js/body.js` e precisa apontar para onde `ficha/index.html`
 estiver publicado (ex.: GitHub Pages).
+
+## Vínculo do responsável pelo projeto
+
+No envio, o JS cadastra o responsável (campos 386/388/564/453) com `Contato/cadastro` e acrescenta
+`pessoasSecundarias: [{ id, tipo: "93" }]` ao evento do formulário, para o fluxo vincular como
+"(Cliente) Responsável do Projeto". Se algo falhar, o formulário é enviado normalmente, sem o vínculo.
+
+**Depois de colar o `js/body.js` no Rubeus, troque `COLE_O_TOKEN_AQUI` pelo token** (o repositório é
+público, por isso o token não fica salvo aqui). As linhas `[ficha]` no Console mostram cada passo.

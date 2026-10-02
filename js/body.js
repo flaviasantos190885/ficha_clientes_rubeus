@@ -1,6 +1,7 @@
 (function () {
   'use strict';
 
+  var LOGO = 'https://raw.githubusercontent.com/flaviasantos190885/ficha_clientes_rubeus/claude/sleepy-euler-p7poiw/img/logo-rubeus.png';
   var SEPARADOR = /\s+[-–—|]\s+/;
   var SUFIXO = /\s+(do|da|dos|das|de)\s+(respons[aá]ve|representante|testemunha)[^*]*/i;
   var IGNORAR = ['hidden', 'submit', 'button', 'reset', 'image'];
@@ -20,7 +21,7 @@
     { antes: 'primeiro', html:
         '<div class="fc-faixa"></div>' +
         '<div class="fc-cabecalho">' +
-          '<span class="fc-logo">Rubeus</span>' +
+          '<img class="fc-logo-img" src="' + LOGO + '" alt="Rubeus">' +
           '<a class="fc-site" href="https://rubeus.com.br" target="_blank" rel="noopener">rubeus.com.br</a>' +
         '</div>' +
         '<h1 class="fc-titulo-ficha">Ficha cadastral</h1>' +
@@ -267,6 +268,7 @@
     });
     var caixa = linhas[0].closest('form') || linhas[0].parentNode;
     caixa.classList.add('fc-container');
+    if (caixa.parentElement && caixa.parentElement !== document.body) caixa.parentElement.classList.add('fc-container-pai');
     if (!document.querySelector('[data-fc-bloco="rodape"]')) caixa.appendChild(criarBloco('rodape', RODAPE));
   }
 
@@ -459,6 +461,110 @@
     document.addEventListener('input', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
     document.addEventListener('change', function (e) { if (e.target.name !== LINK_CAMPO) agendar(); }, true);
     agendar();
+  }
+
+  var RUBEUS = {
+    api: 'https://crmrbacademy.apprubeus.com.br/api/',
+    origem: '600',
+    token: 'COLE_O_TOKEN_AQUI'
+  };
+
+  var VINCULO = {
+    tipo: '93',
+    nome: 'processo.camposPersonalizados.campopersonalizado_386_compl_proc',
+    email: 'processo.camposPersonalizados.campopersonalizado_388_compl_proc',
+    cpf: 'processo.camposPersonalizados.campopersonalizado_564_compl_proc',
+    telefone: 'processo.camposPersonalizados.campopersonalizado_453_compl_proc'
+  };
+
+  function valorPorNome(n) {
+    var el = campoPorNome(n);
+    return el ? String(el.value || '').trim() : '';
+  }
+
+  function chamarApi(metodo, corpo) {
+    corpo.origem = RUBEUS.origem;
+    corpo.token = RUBEUS.token;
+    return fetchOriginal(RUBEUS.api + metodo, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function cadastrarResponsavel() {
+    var nome = valorPorNome(VINCULO.nome);
+    var email = valorPorNome(VINCULO.email);
+    var tel = digitos(valorPorNome(VINCULO.telefone));
+    var cpf = digitos(valorPorNome(VINCULO.cpf));
+    if (!nome || (!email && !tel)) return Promise.reject('responsável sem nome/e-mail/telefone');
+    var corpo = { nome: nome };
+    if (email) corpo.emailPrincipal = email;
+    if (tel) corpo.telefonePrincipal = tel;
+    if (cpf) corpo.cpf = cpf;
+    return chamarApi('Contato/cadastro', corpo).then(function (d) {
+      console.log('[ficha] Contato/cadastro do responsável:', d);
+      if (!d || !d.success || !d.dados) throw d;
+      return [{ id: String(d.dados), tipo: VINCULO.tipo }];
+    });
+  }
+
+  function comTempoLimite(promessa, ms) {
+    return Promise.race([promessa, new Promise(function (_, nao) { setTimeout(function () { nao('tempo esgotado'); }, ms); })]);
+  }
+
+  function ehEnvioDoForm(url, corpo) {
+    if (typeof corpo !== 'string' || corpo.charAt(0) !== '{') return false;
+    if (String(url).indexOf(RUBEUS.api) === 0) return false;
+    try {
+      var j = JSON.parse(corpo);
+      return !!(j && j.pessoa && typeof j.pessoa === 'object');
+    } catch (e) { return false; }
+  }
+
+  function injetar(corpo, secundarias) {
+    var j = JSON.parse(corpo);
+    j.pessoasSecundarias = (Array.isArray(j.pessoasSecundarias) ? j.pessoasSecundarias : []).concat(secundarias);
+    return JSON.stringify(j);
+  }
+
+  function prepararCorpo(url, corpo) {
+    console.log('[ficha] envio do formulário detectado:', url, corpo);
+    return comTempoLimite(cadastrarResponsavel(), 8000).then(function (sec) {
+      var novo = injetar(corpo, sec);
+      console.log('[ficha] envio com responsável vinculado (tipo ' + VINCULO.tipo + '):', novo);
+      return novo;
+    }, function (erro) {
+      console.warn('[ficha] não foi possível vincular o responsável, enviando sem vínculo:', erro);
+      return corpo;
+    });
+  }
+
+  var fetchOriginal = window.fetch.bind(window);
+  if (!window.__fcInterceptado) {
+    window.__fcInterceptado = true;
+    var abrir = XMLHttpRequest.prototype.open;
+    var enviar = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (metodo, url) {
+      this.__fcUrl = url;
+      return abrir.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function (corpo) {
+      var xhr = this;
+      if (typeof corpo === 'string') console.log('[ficha] requisição:', xhr.__fcUrl, corpo.slice(0, 300));
+      if (!ehEnvioDoForm(xhr.__fcUrl, corpo)) return enviar.apply(xhr, arguments);
+      prepararCorpo(xhr.__fcUrl, corpo).then(function (novo) { enviar.call(xhr, novo); });
+    };
+    window.fetch = function (entrada, opcoes) {
+      var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+      if (opcoes && typeof opcoes.body === 'string') console.log('[ficha] requisição:', url, opcoes.body.slice(0, 300));
+      if (opcoes && ehEnvioDoForm(url, opcoes.body)) {
+        return prepararCorpo(url, opcoes.body).then(function (novo) {
+          return fetchOriginal(entrada, Object.assign({}, opcoes, { body: novo }));
+        });
+      }
+      return fetchOriginal(entrada, opcoes);
+    };
   }
 
   var agendado = null;

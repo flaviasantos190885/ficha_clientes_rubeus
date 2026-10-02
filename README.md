@@ -1,6 +1,7 @@
 # Ficha Cadastral Rubeus (formulário)
 
 Recria a "Ficha Cadastral Rubeus" (antes em .docx) dentro do **Modelo de formulário** do Rubeus.
+Layout pensado para desktop (o Rubeus adapta para celular).
 
 **Como funciona:** os campos são os campos nativos do Rubeus, arrastados no editor. Assim o envio,
 a validação e a gravação no CRM continuam sendo do Rubeus. O JS cria sozinho o cabeçalho, os títulos
@@ -15,10 +16,10 @@ das seções, as "Informações gerais" e o rodapé, então **não precisa de ne
 3. Arraste os campos para o formulário nesta ordem:
    - Nome · CNPJ · Endereço sede completo · Inscrição Estadual · Inscrição Municipal ·
      Faturamento bruto anual¹ (seleção) · Regime de Tributação (seleção)
-   - Responsável pelo projeto - Nome · - E-mail · - CPF · - Telefone
-   - Representante legal - Nome · - E-mail · - CPF · - Telefone
-   - Testemunha - Nome · - E-mail · - CPF · - Telefone
-   - Responsável financeiro - Nome · - E-mail · - Telefone
+   - Responsável pelo projeto: Nome · E-mail · CPF · Telefone
+   - Representante legal: Nome · E-mail · CPF · Telefone
+   - Testemunha: Nome · E-mail · CPF · Telefone
+   - Responsável financeiro: Nome · E-mail · Telefone
    - Observações (texto longo)
 4. Salve e abra em Pré-visualizar.
 
@@ -28,16 +29,22 @@ Outros arquivos:
 - `ferramentas/listar-campos.js`: cole no Console (F12) da pré-visualização para listar os campos.
 - `preview/index.html`: simulação local (`python3 ferramentas/gerar-preview.py`).
 
-Os títulos aparecem antes do primeiro campo cujo rótulo começa com "Responsável pelo projeto",
-"Representante", "Testemunha", "Responsável financeiro" e "Observa…". Para mudar textos ou
-regras, edite `BLOCOS` e `RODAPE` no topo do `js/body.js`.
+## Como o JS encontra as seções
 
-## Rótulos dos campos
+O título de cada seção entra antes do primeiro campo que combinar:
 
-Como vários campos se repetem ("Nome", "E-mail", "CPF"…), no Rubeus eles precisam de nomes únicos.
-Use o padrão **`Seção - Campo`** (hífen com espaços). O JS mostra só a parte depois do último
-` - `, então "Responsável pelo projeto - CPF" aparece como **CPF**, igual ao PDF. O nome completo
-continua no CRM.
+| Seção | Regra |
+|---|---|
+| Dados cadastrais do cliente | primeiro campo do formulário |
+| Responsável pelo projeto | rótulo com "responsável pelo projeto" **ou** `name` começando com `processo.` |
+| Representante(s) legal(is) | rótulo com "representante" |
+| Testemunha(s) | rótulo com "testemunha" |
+| Responsável financeiro | rótulo com "financeiro" |
+| Informações gerais | rótulo começando com "Observa" |
+
+Na tela o rótulo é encurtado: "E-mail do responsável pelo projeto" aparece como "E-mail",
+"CPF da testemunha" como "CPF" (também vale o padrão "Seção - Campo"). O nome completo continua no CRM.
+As regras e textos ficam em `BLOCOS` e `RODAPE`, no início do `js/body.js`.
 
 Máscaras automáticas pelo rótulo: **CNPJ**, **CPF** (com validação dos dígitos), **CEP** e
 **Telefone/Celular/WhatsApp**.

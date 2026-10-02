@@ -6,29 +6,29 @@
 <style>body{max-width:760px;margin:0 auto;padding:0 16px 40px;background:#fff}
 button{margin-top:16px;padding:10px 24px;background:#12857f;color:#fff;border:0;border-radius:4px}</style>
 </head><body><form onsubmit="return false">
-<div class="form-group"><label for="c1">Nome</label><input id="c1" name="c1" type="text"></div>
-<div class="form-group"><label for="c2">CNPJ</label><input id="c2" name="c2" type="text"></div>
-<div class="form-group"><label for="c3">Endereço sede completo</label><input id="c3" name="c3" type="text"></div>
-<div class="form-group"><label for="c4">Inscrição Estadual</label><input id="c4" name="c4" type="text"></div>
-<div class="form-group"><label for="c5">Inscrição Municipal</label><input id="c5" name="c5" type="text"></div>
-<div class="form-group"><label for="c6">Faturamento bruto anual¹</label><select id="c6" name="c6"><option>Selecione</option><option>Até R$1M</option><option>De R$1M a R$10M</option><option>De R$10M a R$50M</option><option>De R$50M a R$100M</option><option>Acima de R$100M</option></select></div>
-<div class="form-group"><label for="c7">Regime de Tributação</label><select id="c7" name="c7"><option>Selecione</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>Imune / Isento</option></select></div>
-<div class="form-group"><label for="c8">Responsável pelo projeto - Nome</label><input id="c8" name="c8" type="text"></div>
-<div class="form-group"><label for="c9">Responsável pelo projeto - E-mail</label><input id="c9" name="c9" type="email"></div>
-<div class="form-group"><label for="c10">Responsável pelo projeto - CPF</label><input id="c10" name="c10" type="text"></div>
-<div class="form-group"><label for="c11">Responsável pelo projeto - Telefone</label><input id="c11" name="c11" type="tel"></div>
-<div class="form-group"><label for="c12">Representante legal - Nome</label><input id="c12" name="c12" type="text"></div>
-<div class="form-group"><label for="c13">Representante legal - E-mail</label><input id="c13" name="c13" type="email"></div>
-<div class="form-group"><label for="c14">Representante legal - CPF</label><input id="c14" name="c14" type="text"></div>
-<div class="form-group"><label for="c15">Representante legal - Telefone</label><input id="c15" name="c15" type="tel"></div>
-<div class="form-group"><label for="c16">Testemunha - Nome</label><input id="c16" name="c16" type="text"></div>
-<div class="form-group"><label for="c17">Testemunha - E-mail</label><input id="c17" name="c17" type="email"></div>
-<div class="form-group"><label for="c18">Testemunha - CPF</label><input id="c18" name="c18" type="text"></div>
-<div class="form-group"><label for="c19">Testemunha - Telefone</label><input id="c19" name="c19" type="tel"></div>
-<div class="form-group"><label for="c20">Responsável financeiro - Nome</label><input id="c20" name="c20" type="text"></div>
-<div class="form-group"><label for="c21">Responsável financeiro - E-mail</label><input id="c21" name="c21" type="email"></div>
-<div class="form-group"><label for="c22">Responsável financeiro - Telefone</label><input id="c22" name="c22" type="tel"></div>
-<div class="form-group"><label for="c23">Observações</label><textarea id="c23" name="c23"></textarea></div>
+<div class="form-group"><label for="c1">Nome *</label><input id="c1" name="pessoa.nome" type="text"></div>
+<div class="form-group"><label for="c2">CNPJ *</label><input id="c2" name="pessoa.cnpj" type="text"></div>
+<div class="form-group"><label for="c3">Endereço sede completo *</label><input id="c3" name="pessoa.endereco" type="text"></div>
+<div class="form-group"><label for="c4">Inscrição Estadual</label><input id="c4" name="contato.camposPersonalizados.ie" type="text"></div>
+<div class="form-group"><label for="c5">Inscrição Municipal</label><input id="c5" name="contato.camposPersonalizados.im" type="text"></div>
+<div class="form-group"><label for="c6">Faturamento bruto anual¹</label><select id="c6" name="contato.camposPersonalizados.fat"><option>Selecione</option><option>Até R$1M</option><option>De R$1M a R$10M</option><option>De R$10M a R$50M</option><option>De R$50M a R$100M</option><option>Acima de R$100M</option></select></div>
+<div class="form-group"><label for="c7">Regime de Tributação</label><select id="c7" name="contato.camposPersonalizados.reg"><option>Selecione</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>Imune / Isento</option></select></div>
+<div class="form-group"><label for="c8">Nome *</label><input id="c8" name="processo.camposPersonalizados.rp_nome" type="text"></div>
+<div class="form-group"><label for="c9">E-mail do responsável pelo projeto *</label><input id="c9" name="processo.camposPersonalizados.rp_email" type="text"></div>
+<div class="form-group"><label for="c10">CPF do responsável pelo projeto</label><input id="c10" name="processo.camposPersonalizados.rp_cpf" type="text"></div>
+<div class="form-group"><label for="c11">Telefone do responsável pelo projeto</label><input id="c11" name="processo.camposPersonalizados.rp_tel" type="text"></div>
+<div class="form-group"><label for="c12">Nome do representante legal</label><input id="c12" name="processo.camposPersonalizados.rl_nome" type="text"></div>
+<div class="form-group"><label for="c13">E-mail do representante legal</label><input id="c13" name="processo.camposPersonalizados.rl_email" type="text"></div>
+<div class="form-group"><label for="c14">CPF do representante legal</label><input id="c14" name="processo.camposPersonalizados.rl_cpf" type="text"></div>
+<div class="form-group"><label for="c15">Telefone do representante legal</label><input id="c15" name="processo.camposPersonalizados.rl_tel" type="text"></div>
+<div class="form-group"><label for="c16">Nome da testemunha</label><input id="c16" name="processo.camposPersonalizados.t_nome" type="text"></div>
+<div class="form-group"><label for="c17">E-mail da testemunha</label><input id="c17" name="processo.camposPersonalizados.t_email" type="text"></div>
+<div class="form-group"><label for="c18">CPF da testemunha</label><input id="c18" name="processo.camposPersonalizados.t_cpf" type="text"></div>
+<div class="form-group"><label for="c19">Telefone da testemunha</label><input id="c19" name="processo.camposPersonalizados.t_tel" type="text"></div>
+<div class="form-group"><label for="c20">Nome do responsável financeiro</label><input id="c20" name="processo.camposPersonalizados.f_nome" type="text"></div>
+<div class="form-group"><label for="c21">E-mail do responsável financeiro</label><input id="c21" name="processo.camposPersonalizados.f_email" type="text"></div>
+<div class="form-group"><label for="c22">Telefone do responsável financeiro</label><input id="c22" name="processo.camposPersonalizados.f_tel" type="text"></div>
+<div class="form-group"><label for="c23">Observações</label><textarea id="c23" name="processo.camposPersonalizados.obs"></textarea></div>
 <div class="form-group"><label><input type="checkbox" name="aceite"> Declaro que as informações são verdadeiras.</label></div>
 <button type="submit">Enviar</button>
 </form><script src="../js/body.js"></script></body></html>

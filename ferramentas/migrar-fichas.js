@@ -7,7 +7,7 @@
     eventoOrigem: '903',
     eventoToken: 'COLE_O_TOKEN_DO_EVENTO',
     processoFichas: '42',
-    processoGestao: '',
+    processoGestao: '76',
     linkBase: 'https://rbacademy.apprbs.com.br/ficha_cadastral',
     campoLink: 'campopersonalizado_585_compl_proc',
     camposResponsavel: {

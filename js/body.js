@@ -81,7 +81,7 @@
     });
     var data = new Date(dados.t);
     html += '<p class="nota"><sup>1</sup> A estrutura de atendimento da Rubeus é organizada pelo porte do cliente, assim, a informação sobre faturamento bruto anual é utilizada restrita e exclusivamente para melhor atender as necessidades de cada cliente.</p>' +
-      (isNaN(data) ? '' : '<p class="gerado">Ficha preenchida em ' + esc(data.toLocaleString('pt-BR')) + '</p>') +
+      (isNaN(data) ? '' : '<p class="gerado">' + (dados.o === 'importacao' ? 'Ficha gerada a partir do cadastro existente em ' : 'Ficha preenchida em ') + esc(data.toLocaleString('pt-BR')) + '</p>') +
       '<div class="rodape"><div><img src="' + IMG.tel + '" alt=""><span>SP: (11) 3588-4784<br>BH: (31) 3514-7911</span></div><div><img src="' + IMG.web + '" alt=""><span>contato@rubeus.com.br</span></div><div><img src="' + IMG.local + '" alt=""><span>Praça João Pinheiro, 30<br>Centro, 36880-043 - Muriaé/MG</span></div></div><img class="faixa-base" src="' + IMG.base + '" alt=""></div>';
     saida.innerHTML = html;
     var nome = (dados.s[0] && dados.s[0][1][0] && dados.s[0][1][0][1]) || '';

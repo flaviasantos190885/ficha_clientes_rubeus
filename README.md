@@ -94,3 +94,16 @@ O token não fica no repositório (que é público): `js/body.js` tem `COLE_O_TO
 uma página do Rubeus (logo embutido, nada vem do GitHub). Ele cobre o conteúdo da página e mostra a
 ficha do link, com o botão "Salvar em PDF / Imprimir". Depois de publicar, coloque o endereço dessa
 página em `LINK_BASE` no `js/body.js`.
+
+## Fichas dos clientes já existentes (importação)
+
+`ferramentas/gerar-fichas-importacao.py` lê a exportação CSV do processo de gestão e o modelo de
+importação de pessoas do Rubeus e gera, em `saida/` (fora do git):
+- `importacao-fichas.csv`: modelo do Rubeus (`;`) com Nome, Email, Telefone (iguais aos da gestão,
+  para mesclar), Natureza jurídica 2, CNPJ e **RpR - Link Ficha (PDF)** preenchido;
+- `relatorio.csv`: todos os clientes, com o link e quem ficou de fora (sem e-mail e sem telefone).
+
+Um cliente por pessoa (linhas repetidas são unidas). O link abre a ficha no formulário
+(`?ficha=`), com os dados da empresa e os nomes dos contatos relacionados.
+
+    python3 -I ferramentas/gerar-fichas-importacao.py exportacao.csv modelo.csv saida

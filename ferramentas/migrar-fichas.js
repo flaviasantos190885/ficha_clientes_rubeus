@@ -22,10 +22,10 @@
   };
 
   var PAPEIS = [
-    { titulo: 'Responsável pelo projeto', detalhe: '(Contato principal)', tipoFicha: '93', tiposGestao: ['93'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
-    { titulo: 'Representante(s) legal(is)', detalhe: '(responsável(is) pela assinatura)', tipoFicha: '82', tiposGestao: ['82'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
-    { titulo: 'Testemunha(s)', detalhe: '', tipoFicha: '2', tiposGestao: ['2'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
-    { titulo: 'Responsável financeiro', detalhe: '(recebimento de NFs)', tipoFicha: '78', tiposGestao: ['78', '89', '83'], campos: ['Nome', 'E-mail', 'Telefone'] }
+    { titulo: 'Responsável pelo projeto', detalhe: '(Contato principal)', tiposGestao: ['93'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
+    { titulo: 'Representante(s) legal(is)', detalhe: '(responsável(is) pela assinatura)', tiposGestao: ['82'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
+    { titulo: 'Testemunha(s)', detalhe: '', tiposGestao: ['2'], campos: ['Nome', 'E-mail', 'CPF', 'Telefone'] },
+    { titulo: 'Responsável financeiro', detalhe: '(recebimento de NFs)', tiposGestao: ['78'], campos: ['Nome', 'E-mail', 'Telefone'] }
   ];
 
   var CLIENTES = __CLIENTES__;
@@ -150,6 +150,7 @@
     var pj = await dadosPessoa(c.p);
     if (!pj) throw new Error('cliente ' + c.p + ' não encontrado');
     var vistos = {};
+    var vinculos = [];
     var porPapel = PAPEIS.map(function () { return []; });
     for (var i = 0; i < c.r.length; i++) {
       var reg = await api('Registro/dados', { id: c.r[i] });
@@ -157,8 +158,13 @@
       for (var j = 0; j < pessoas.length; j++) {
         var p = pessoas[j];
         var tipo = String(p.tipo || '');
+        if (!p.id || String(p.id) === String(c.p)) continue;
+        if (!vistos['v:' + p.id]) {
+          vistos['v:' + p.id] = true;
+          vinculos.push({ id: String(p.id), tipo: tipo, nome: p.nome || '' });
+        }
         var idx = PAPEIS.findIndex(function (papel) { return papel.tiposGestao.indexOf(tipo) !== -1; });
-        if (idx === -1 || String(p.id) === String(c.p) || vistos[idx + ':' + p.id]) continue;
+        if (idx === -1 || vistos[idx + ':' + p.id]) continue;
         vistos[idx + ':' + p.id] = true;
         var d = await dadosPessoa(p.id);
         porPapel[idx].push({
@@ -173,15 +179,6 @@
     }
     var ficha = montarFicha(pj, porPapel);
     var link = CONFIG.linkBase + '?ficha=' + await compactar(ficha);
-    var vinculos = [];
-    var jaVinculado = {};
-    porPapel.forEach(function (lista, i) {
-      lista.forEach(function (p) {
-        if (jaVinculado[p.id]) return;
-        jaVinculado[p.id] = true;
-        vinculos.push({ id: p.id, tipo: PAPEIS[i].tipoFicha });
-      });
-    });
     var resp = porPapel[0][0] || {};
     var campos = {};
     campos[CONFIG.campoLink] = link;
@@ -198,7 +195,7 @@
       tipo: CONFIG.eventoCriaFicha,
       pessoa: { id: c.p },
       codRegistro: cod,
-      pessoasSecundarias: prep.vinculos,
+      pessoasSecundarias: prep.vinculos.map(function (v) { return v.tipo ? { id: v.id, tipo: v.tipo } : { id: v.id }; }),
       camposPersonalizados: prep.campos
     };
     var antes = await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas });
@@ -218,7 +215,7 @@
     var reg = await api('Registro/dados', { id: registro.id });
     var pessoas = reg && reg.success && reg.dados && Array.isArray(reg.dados.pessoas) ? reg.dados.pessoas : [];
     var faltando = prep.vinculos.filter(function (v) {
-      return !pessoas.some(function (p) { return String(p.id) === v.id && String(p.tipo) === v.tipo; });
+      return !pessoas.some(function (p) { return String(p.id) === v.id && String(p.tipo || '') === v.tipo; });
     });
     if (faltando.length) {
       var listaP = pessoas.map(function (p) { return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') }; });
@@ -269,7 +266,7 @@
       feitos++;
       try {
         var prep = await prepararCliente(c);
-        var resumo = prep.porPapel.map(function (l, k) { return PAPEIS[k].titulo + ': ' + l.map(function (p) { return p.nome + ' <' + (p.email || 'sem e-mail') + '>'; }).join(', '); }).join(' | ');
+        var resumo = 'Vínculos (' + prep.vinculos.length + '): ' + prep.vinculos.map(function (v) { return v.nome + ' [tipo ' + (v.tipo || 'sem tipo') + ']'; }).join(', ');
         if (teste) {
           console.log('#' + feitos, prep.pj.nome, '\n  ' + resumo, '\n  vínculos:', prep.vinculos, '\n  campos:', prep.campos, '\n  dados do cliente (para conferir os nomes das propriedades):', prep.pj);
           relatorio.push([c.p, prep.pj.nome, 'teste', '', prep.vinculos.length, '', prep.link, resumo]);

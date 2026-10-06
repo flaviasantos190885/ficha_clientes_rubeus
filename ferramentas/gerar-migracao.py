@@ -12,17 +12,30 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 
 
+def valor(v):
+    v = (v or "").strip()
+    return "" if v in ("", "-", "--", "- - -") else v
+
+
 def main():
     exportacao = Path(sys.argv[1])
     evento = sys.argv[2] if len(sys.argv) > 2 else ""
     with exportacao.open(encoding="utf-8-sig", newline="") as f:
         linhas = list(csv.DictReader(f))
-    clientes = {}
+    clientes, cidades = {}, {}
     for r in linhas:
         pid, reg = r["Identificador da pessoa"].strip(), r["Identificador"].strip()
         if pid and reg and reg not in clientes.setdefault(pid, []):
             clientes[pid].append(reg)
-    lista = [{"p": p, "r": rs} for p, rs in clientes.items()]
+        cidade, uf = valor(r.get("Cidade")), valor(r.get("UF"))
+        if pid and cidade and pid not in cidades:
+            cidades[pid] = f"{cidade} - {uf}" if uf else cidade
+    lista = []
+    for p, rs in clientes.items():
+        item = {"p": p, "r": rs}
+        if p in cidades:
+            item["c"] = cidades[p]
+        lista.append(item)
 
     js = (RAIZ / "ferramentas" / "migrar-fichas.js").read_text(encoding="utf-8")
     js = js.replace("__CLIENTES__", json.dumps(lista, separators=(",", ":")))

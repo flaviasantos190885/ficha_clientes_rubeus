@@ -76,6 +76,11 @@
     return v ? String(v) : '';
   }
 
+  function mesmoNome(a, b) {
+    var n = function (x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, ''); };
+    return !!n(a) && n(a) === n(b);
+  }
+
   function cnpjFormatado(v) {
     var d = digitos(v);
     if (!d) return '';
@@ -111,21 +116,26 @@
     return 'z.' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  function montarFicha(pj, porPapel) {
-    var cidade = pj.cidade || pj.cidadeNome || '';
+  function cepFormatado(v) {
+    var d = digitos(v);
+    return d.length === 8 ? d.slice(0, 5) + '-' + d.slice(5) : (v || '');
+  }
+
+  function montarFicha(pj, porPapel, cidadeUf) {
+    var cidade = pj.cidadeNome || (typeof pj.cidade === 'string' && /\D/.test(pj.cidade) ? pj.cidade : '');
     var uf = pj.uf || pj.estado || '';
     if (cidade && typeof cidade === 'object') cidade = cidade.nome || '';
     var dados = [
       ['Nome', pj.nome || ''],
       ['CNPJ', cnpjFormatado(pj.cnpj || pj.codigo)],
-      ['CEP', pj.cep || ''],
+      ['CEP', cepFormatado(pj.cep)],
       ['Endereço sede completo', pj.endereco || pj.logradouro || ''],
       ['Número', pj.numero || ''],
       ['Complemento', pj.complemento || campoPers(pj, CONFIG.camposCliente.complemento)],
       ['Bairro', pj.bairro || ''],
       ['Inscrição Estadual', campoPers(pj, CONFIG.camposCliente.inscricaoEstadual)],
       ['Inscrição Municipal', campoPers(pj, CONFIG.camposCliente.inscricaoMunicipal)],
-      ['Cidade/Estado', cidade && uf && String(cidade).indexOf(' - ') === -1 ? cidade + ' - ' + uf : (cidade || uf)],
+      ['Cidade/Estado', cidadeUf || (cidade && uf && String(cidade).indexOf(' - ') === -1 ? cidade + ' - ' + uf : (cidade || uf))],
       ['Faturamento bruto anual¹', ''],
       ['Regime de Tributação', '']
     ];
@@ -158,7 +168,7 @@
       for (var j = 0; j < pessoas.length; j++) {
         var p = pessoas[j];
         var tipo = String(p.tipo || '');
-        if (!p.id || String(p.id) === String(c.p)) continue;
+        if (!p.id || String(p.id) === String(c.p) || mesmoNome(p.nome, pj.nome)) continue;
         if (!vistos['v:' + p.id]) {
           vistos['v:' + p.id] = true;
           vinculos.push({ id: String(p.id), tipo: tipo, nome: p.nome || '' });
@@ -177,7 +187,7 @@
         await esperar(CONFIG.pausaMs);
       }
     }
-    var ficha = montarFicha(pj, porPapel);
+    var ficha = montarFicha(pj, porPapel, c.c);
     var link = CONFIG.linkBase + '?ficha=' + await compactar(ficha);
     var resp = porPapel[0][0] || {};
     var campos = {};

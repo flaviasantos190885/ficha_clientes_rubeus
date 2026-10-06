@@ -7,6 +7,7 @@
     eventoOrigem: '903',
     eventoToken: 'COLE_O_TOKEN_DO_EVENTO',
     processoFichas: '42',
+    processoGestao: '',
     linkBase: 'https://rbacademy.apprbs.com.br/ficha_cadastral',
     campoLink: 'campopersonalizado_585_compl_proc',
     camposResponsavel: {
@@ -311,40 +312,140 @@
     console.log('Fim. Relatório baixado (' + relatorio.length + ' linhas).');
   };
 
+  function listaDe(r) { return r && r.success && Array.isArray(r.dados) ? r.dados : []; }
+
+  async function processoGestao() {
+    if (CONFIG.processoGestao) return CONFIG.processoGestao;
+    for (var i = 0; i < CLIENTES.length && i < 10; i++) {
+      var lista = listaDe(await api('Contato/listarOportunidades', { id: CLIENTES[i].p }));
+      for (var j = 0; j < lista.length; j++) {
+        var x = lista[j];
+        if (CLIENTES[i].r.indexOf(String(x.id)) === -1) continue;
+        var proc = x.processo && typeof x.processo === 'object' ? x.processo.id : (x.processo || x.idProcesso || x.processoId);
+        if (proc) {
+          CONFIG.processoGestao = String(proc);
+          console.log('Processo de gestão: ' + CONFIG.processoGestao);
+          return CONFIG.processoGestao;
+        }
+      }
+    }
+    throw new Error('não consegui descobrir o número do processo de gestão; preencha processoGestao no início do script');
+  }
+
+  async function situacaoCliente(idCliente) {
+    var gestao = await processoGestao();
+    var fichas = listaDe(await api('Contato/listarOportunidades', { id: idCliente, processo: CONFIG.processoFichas }));
+    var registros = listaDe(await api('Contato/listarOportunidades', { id: idCliente, processo: gestao })).map(function (x) { return String(x.id); });
+    return { fichas: fichas.map(function (x) { return String(x.id); }), registros: registros };
+  }
+
+  async function enviarCliente(c, teste) {
+    var prep = await prepararCliente(c);
+    console.log('  ' + prep.pj.nome + ' | vínculos (' + prep.vinculos.length + '): ' + prep.vinculos.map(function (v) { return v.nome + ' [tipo ' + (v.tipo || 'sem tipo') + ']'; }).join(', '));
+    if (teste) return { prep: prep, res: null };
+    var res = await criarRegistro(c, prep);
+    var progresso = lerProgresso();
+    progresso[c.p] = { evento: String((res.evento && res.evento.dados && res.evento.dados.id) || 'enviado'), registro: res.registro, quando: new Date().toISOString() };
+    salvarProgresso(progresso);
+    return { prep: prep, res: res };
+  }
+
   window.fichaMigrarCliente = async function (idCliente, opcoes) {
     opcoes = opcoes || {};
     idCliente = String(idCliente || '').replace(/\D/g, '');
     if (!idCliente) { console.error('Informe o ID do cliente. Ex.: fichaMigrarCliente(\'1264416\')'); return; }
-    var todos = await api('Contato/listarOportunidades', { id: idCliente });
-    var lista = todos && todos.success && Array.isArray(todos.dados) ? todos.dados : [];
-    var processoDe = function (x) { return String(x.processo || x.idProcesso || (x.processo && x.processo.id) || ''); };
-    var emFichas = await api('Contato/listarOportunidades', { id: idCliente, processo: CONFIG.processoFichas });
-    var fichas = emFichas && emFichas.success && Array.isArray(emFichas.dados) ? emFichas.dados : [];
-    var idsFichas = fichas.map(function (x) { return String(x.id); });
-    var registros = opcoes.registros ? opcoes.registros.map(String) : lista.filter(function (x) {
-      var proc = processoDe(x);
-      return idsFichas.indexOf(String(x.id)) === -1 && proc !== CONFIG.processoFichas && (!opcoes.processoGestao || proc === String(opcoes.processoGestao));
-    }).map(function (x) { return String(x.id); });
-    console.log('Cliente ' + idCliente + ': ' + registros.length + ' registro(s) de onde virão os contatos: ' + registros.join(', ') + ' | fichas que já existem: ' + fichas.length);
-    if (fichas.length && !opcoes.forcar) {
-      console.warn('Este cliente já tem ficha no processo ' + CONFIG.processoFichas + ' (registro ' + fichas.map(function (x) { return x.id; }).join(', ') + '). Para criar outra mesmo assim: fichaMigrarCliente(\'' + idCliente + '\', { forcar: true })');
+    var sit = await situacaoCliente(idCliente);
+    console.log('Cliente ' + idCliente + ': registros na gestão: ' + (sit.registros.join(', ') || 'nenhum') + ' | fichas que já existem: ' + (sit.fichas.join(', ') || 'nenhuma'));
+    if (sit.fichas.length && !opcoes.forcar) {
+      console.warn('Este cliente já tem ficha. Para criar outra mesmo assim: fichaMigrarCliente(\'' + idCliente + '\', { forcar: true })');
       return;
     }
-    if (!registros.length) { console.warn('Nenhum registro encontrado para este cliente.'); return; }
-    var c = { p: idCliente, r: registros };
-    if (opcoes.cidade) c.c = opcoes.cidade;
+    if (!sit.registros.length) { console.warn('Este cliente não tem registro no processo de gestão.'); return; }
+    var feito = await enviarCliente({ p: idCliente, r: sit.registros, c: opcoes.cidade }, opcoes.teste === true);
+    if (!feito.res) { console.log('[TESTE] nada foi criado. Link da ficha:', feito.prep.link); return; }
+    console.log('Pronto: ' + feito.prep.pj.nome + ' -> ' + (feito.res.registro ? 'registro ' + feito.res.registro : 'evento aceito (o fluxo cria o registro)'));
+  };
+
+  function lerCsv(texto) {
+    texto = texto.replace(/^﻿/, '');
+    var sep = (texto.split('\n')[0].match(/;/g) || []).length > (texto.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+    var linhas = [], linha = [], campo = '', aspas = false;
+    for (var i = 0; i < texto.length; i++) {
+      var ch = texto[i];
+      if (aspas) {
+        if (ch === '"' && texto[i + 1] === '"') { campo += '"'; i++; }
+        else if (ch === '"') aspas = false;
+        else campo += ch;
+      } else if (ch === '"') aspas = true;
+      else if (ch === sep) { linha.push(campo); campo = ''; }
+      else if (ch === '\n') { linha.push(campo.replace(/\r$/, '')); linhas.push(linha); linha = []; campo = ''; }
+      else campo += ch;
+    }
+    if (campo || linha.length) { linha.push(campo); linhas.push(linha); }
+    var cab = linhas.shift() || [];
+    return linhas.filter(function (l) { return l.length > 1; }).map(function (l) {
+      var o = {};
+      cab.forEach(function (c, k) { o[c.trim()] = (l[k] || '').trim(); });
+      return o;
+    });
+  }
+
+  function clientesDoCsv(linhas) {
+    var vazio = function (v) { return !v || v === '-' || v === '--' || v === '- - -'; };
+    var mapa = {};
+    linhas.forEach(function (r) {
+      var p = r['Identificador da pessoa'];
+      if (vazio(p)) return;
+      var c = mapa[p] || (mapa[p] = { p: p, r: [], nome: r['Nome da pessoa'] || '' });
+      if (!vazio(r['Identificador']) && c.r.indexOf(r['Identificador']) === -1) c.r.push(r['Identificador']);
+      if (!c.c && !vazio(r['Cidade'])) c.c = r['Cidade'] + (vazio(r['UF']) ? '' : ' - ' + r['UF']);
+    });
+    return Object.keys(mapa).map(function (k) { return mapa[k]; });
+  }
+
+  function escolherArquivo() {
+    return new Promise(function (ok) {
+      var caixa = document.createElement('div');
+      caixa.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif';
+      caixa.innerHTML = '<div style="background:#fff;padding:24px 28px;border-radius:8px;max-width:420px;text-align:center"><p style="margin:0 0 16px;font-size:15px">Escolha a exportação (CSV) do processo de gestão</p><input type="file" accept=".csv,text/csv"><p style="margin:16px 0 0"><button type="button" style="padding:6px 14px;cursor:pointer">Cancelar</button></p></div>';
+      document.body.appendChild(caixa);
+      caixa.querySelector('input').addEventListener('change', function (e) { var f = e.target.files[0]; caixa.remove(); ok(f || null); });
+      caixa.querySelector('button').addEventListener('click', function () { caixa.remove(); ok(null); });
+    });
+  }
+
+  window.fichaMigrarNovos = async function (opcoes) {
+    opcoes = opcoes || {};
     var teste = opcoes.teste === true;
-    var prep = await prepararCliente(c);
-    console.log(prep.pj.nome + ' | vínculos (' + prep.vinculos.length + '): ' + prep.vinculos.map(function (v) { return v.nome + ' [tipo ' + (v.tipo || 'sem tipo') + ']'; }).join(', '));
-    if (teste) { console.log('[TESTE] nada foi criado. Link da ficha:', prep.link); return; }
-    var res = await criarRegistro(c, prep);
-    var progresso = lerProgresso();
-    progresso[idCliente] = { evento: String((res.evento && res.evento.dados && res.evento.dados.id) || 'enviado'), registro: res.registro, quando: new Date().toISOString() };
-    salvarProgresso(progresso);
-    console.log('Pronto: ' + prep.pj.nome + ' -> ' + (res.registro ? 'registro ' + res.registro : 'evento aceito (o fluxo cria o registro)'));
+    var arquivo = await escolherArquivo();
+    if (!arquivo) { console.warn('Nenhum arquivo escolhido.'); return; }
+    var clientes = clientesDoCsv(lerCsv(await arquivo.text()));
+    if (!clientes.length) { console.error('Não achei a coluna "Identificador da pessoa" no arquivo. Use a exportação do processo de gestão.'); return; }
+    var gestao = await processoGestao();
+    console.log((teste ? '[TESTE - nada será criado] ' : '') + 'Clientes no arquivo: ' + clientes.length + '. Verificando quem ainda não tem ficha...');
+    var relatorio = [], enviados = 0, comFicha = 0;
+    for (var i = 0; i < clientes.length; i++) {
+      var c = clientes[i];
+      try {
+        var fichas = listaDe(await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas }));
+        if (fichas.length) { comFicha++; continue; }
+        var registros = listaDe(await api('Contato/listarOportunidades', { id: c.p, processo: gestao })).map(function (x) { return String(x.id); });
+        c.r = registros.length ? registros : c.r;
+        console.log('#' + (enviados + 1) + ' sem ficha: ' + (c.nome || c.p) + ' (cliente ' + c.p + ')');
+        var feito = await enviarCliente(c, teste);
+        enviados++;
+        relatorio.push([c.p, feito.prep.pj.nome, teste ? 'teste' : (feito.res.registro ? 'criado' : 'evento aceito (registro pelo fluxo)'), feito.res ? feito.res.registro : '', feito.prep.vinculos.length, '', feito.prep.link, '']);
+      } catch (e) {
+        console.warn('cliente', c.p, 'erro:', e.message);
+        relatorio.push([c.p, c.nome, 'erro', '', '', '', '', e.message]);
+      }
+      await esperar(CONFIG.pausaMs);
+    }
+    console.log('Fim. Já tinham ficha: ' + comFicha + ' | ' + (teste ? 'seriam enviados: ' : 'enviados: ') + enviados + ' | erros: ' + relatorio.filter(function (l) { return l[2] === 'erro'; }).length);
+    if (relatorio.length) baixarRelatorio(relatorio);
   };
 
   window.fichaMigracaoZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };
 
-  console.log('Script de migração carregado. Um cliente: fichaMigrarCliente(\'ID_DO_CLIENTE\')  |  Lista: fichaMigrar({ teste: false })');
+  console.log('Script carregado. Só quem falta: fichaMigrarNovos()  |  Um cliente: fichaMigrarCliente(\'ID_DO_CLIENTE\')');
 })();

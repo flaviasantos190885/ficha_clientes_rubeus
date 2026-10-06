@@ -233,7 +233,7 @@
         lista.filter(function (x) { return idsAntes.indexOf(String(x.id)) === -1; })
           .sort(function (a, b) { return Number(b.id) - Number(a.id); })[0] || null;
     }
-    if (!registro) return { evento: r, registro: '' };
+    if (!registro) return { evento: r, registro: '', vinculosCorrigidos: 0, linkGravado: false };
     var reg = await api('Registro/dados', { id: registro.id });
     var pessoas = reg && reg.success && reg.dados && Array.isArray(reg.dados.pessoas) ? reg.dados.pessoas : [];
     var faltando = prep.vinculos.filter(function (v) {
@@ -284,7 +284,8 @@
     console.log((teste ? '[TESTE - nada será criado] ' : '') + 'Clientes na lista: ' + lista.length + ' | limite desta rodada: ' + limite);
     for (var i = 0; i < lista.length && feitos < limite; i++) {
       var c = lista[i];
-      if (!teste && progresso[c.p] && progresso[c.p].registro) continue;
+      if (!teste && progresso[c.p] && (progresso[c.p].registro || progresso[c.p].evento)) continue;
+      if (opcoes.pular && opcoes.pular.indexOf(c.p) !== -1) continue;
       feitos++;
       console.log('#' + feitos + ' começando cliente ' + c.p);
       try {
@@ -295,10 +296,10 @@
           relatorio.push([c.p, prep.pj.nome, 'teste', '', prep.vinculos.length, '', prep.link, resumo]);
         } else {
           var res = await criarRegistro(c, prep);
-          progresso[c.p] = { registro: res.registro, quando: new Date().toISOString() };
+          progresso[c.p] = { evento: String((res.evento && res.evento.dados && res.evento.dados.id) || 'enviado'), registro: res.registro, quando: new Date().toISOString() };
           salvarProgresso(progresso);
           console.log('#' + feitos, prep.pj.nome, '-> registro', res.registro || '(não encontrado)', '| vínculos corrigidos:', res.vinculosCorrigidos, '| link gravado:', res.linkGravado);
-          relatorio.push([c.p, prep.pj.nome, res.registro ? 'criado' : 'evento aceito, registro não encontrado', res.registro, prep.vinculos.length, res.linkGravado ? 'sim' : 'conferir', prep.link, resumo]);
+          relatorio.push([c.p, prep.pj.nome, res.registro ? 'criado' : 'evento aceito (registro pelo fluxo)', res.registro, prep.vinculos.length, res.linkGravado ? 'sim' : 'conferir', prep.link, resumo]);
         }
       } catch (e) {
         console.warn('#' + feitos, 'cliente', c.p, 'erro:', e.message);

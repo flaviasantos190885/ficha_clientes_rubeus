@@ -39,11 +39,29 @@ def digitos(v):
     return re.sub(r"\D", "", v or "")
 
 
+def cnpj_valido(d):
+    if len(d) != 14 or len(set(d)) == 1:
+        return False
+    for t in (12, 13):
+        pesos = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2][13 - t:]
+        s = sum(int(d[i]) * pesos[i] for i in range(t))
+        if (0 if s % 11 < 2 else 11 - s % 11) != int(d[t]):
+            return False
+    return True
+
+
+def cnpj_completo(*valores):
+    """CNPJ com 14 dígitos (a exportação perde os zeros à esquerda). Retorna (formatado, valido)."""
+    for v in valores:
+        d = digitos(valor(v))
+        if d and len(d) <= 14:
+            d = d.zfill(14)
+            return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}", cnpj_valido(d)
+    return "", False
+
+
 def cnpj_formatado(v):
-    d = digitos(v)
-    if len(d) != 14:
-        return v
-    return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    return cnpj_completo(v)[0] or v
 
 
 def nomes(texto):
@@ -73,7 +91,7 @@ def montar_ficha(r):
     uf = valor(r.get("UF"))
     dados = [
         ["Nome", valor(r.get("Nome da pessoa"))],
-        ["CNPJ", cnpj_formatado(valor(r.get("RpR - CNPJ")) or valor(r.get("CNPJ")))],
+        ["CNPJ", cnpj_completo(r.get("RpR - CNPJ"), r.get("CNPJ"))[0]],
     ]
     if valor(r.get("RpR - Razão Social")):
         dados.append(["Razão social", valor(r["RpR - Razão Social"])])
@@ -143,12 +161,15 @@ def main():
         email = valor(r.get("E-mail da pessoa"))
         tel = digitos(valor(r.get("Telefone da pessoa")))
         link = link_da_ficha(montar_ficha(r), base)
+        cnpj, cnpj_ok = cnpj_completo(r.get("RpR - CNPJ"), r.get("CNPJ"))
         situacao = "incluído"
         if not nome:
             situacao = "fora: sem nome"
         elif not email and not tel:
             situacao = "fora: sem e-mail e sem telefone"
-        relatorio.append({"Identificador da pessoa": pid, "Nome": nome, "E-mail": email, "Telefone": tel,
+        relatorio.append({"Identificador da pessoa": pid, "Nome": nome, "CNPJ": cnpj,
+                          "CNPJ válido": "sim" if cnpj_ok else ("sem CNPJ" if not cnpj else "NÃO"),
+                          "E-mail": email, "Telefone": tel,
                           "Registros na exportação": len(grupo), "Situação": situacao,
                           "Tamanho do link": len(link), "Link da ficha": link})
         if situacao != "incluído":
@@ -158,7 +179,7 @@ def main():
         linha[col["email"]] = email
         linha[col["telefone"]] = tel
         linha[col["natureza"]] = "2"
-        linha[col["cnpj"]] = digitos(valor(r.get("CNPJ")) or valor(r.get("RpR - CNPJ")))
+        linha[col["cnpj"]] = cnpj
         linha[col["link"]] = link
         importar.append(linha)
 
@@ -176,6 +197,10 @@ def main():
         if r["Situação"] != "incluído":
             print(" -", r["Nome"], "->", r["Situação"])
     print("maior link:", max(r["Tamanho do link"] for r in relatorio), "caracteres")
+    print("CNPJ completados com zero:", sum(1 for r in relatorio if r["CNPJ"].startswith("0")))
+    for r in relatorio:
+        if r["CNPJ válido"] != "sim":
+            print(" - CNPJ", r["CNPJ válido"], ":", r["Nome"], r["CNPJ"])
 
 
 if __name__ == "__main__":

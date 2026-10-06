@@ -37,11 +37,17 @@
 
   function api(metodo, corpo) {
     corpo = Object.assign({ origem: CONFIG.origem, token: CONFIG.token }, corpo);
+    var ctrl = new AbortController();
+    var limite = setTimeout(function () { ctrl.abort(); }, 30000);
     return fetch(CONFIG.api + metodo, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(corpo)
-    }).then(function (r) { return r.json(); }).catch(function (e) { return { success: false, erro: String(e) }; });
+      body: JSON.stringify(corpo),
+      signal: ctrl.signal
+    }).then(function (r) { return r.text(); }).then(function (t) {
+      try { return JSON.parse(t); } catch (e) { return { success: false, erro: 'resposta não é JSON', texto: t.slice(0, 300) }; }
+    }).catch(function (e) { return { success: false, erro: String(e) }; })
+      .finally(function () { clearTimeout(limite); });
   }
 
   function primeiro(lista) { return Array.isArray(lista) ? lista[0] : lista; }
@@ -157,6 +163,7 @@
   }
 
   async function prepararCliente(c) {
+    console.log('  lendo o cliente ' + c.p + ' e ' + c.r.length + ' registro(s) da gestão...');
     var pj = await dadosPessoa(c.p);
     if (!pj) throw new Error('cliente ' + c.p + ' não encontrado');
     var vistos = {};
@@ -210,13 +217,16 @@
     };
     var antes = await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas });
     var idsAntes = (antes && antes.success && Array.isArray(antes.dados) ? antes.dados : []).map(function (x) { return String(x.id); });
+    console.log('  enviando o evento ' + CONFIG.eventoCriaFicha + ' com ' + prep.vinculos.length + ' vínculo(s)...');
     var r = await api('Evento/cadastro', corpo);
+    console.log('  resposta do evento:', JSON.stringify(r));
     if (!r || r.success === false) throw new Error('Evento/cadastro recusado: ' + JSON.stringify(r).slice(0, 300));
     var registro = null;
     for (var t = 0; t < 20 && !registro; t++) {
       await esperar(1500);
       var l = await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas });
       var lista = l && l.success && Array.isArray(l.dados) ? l.dados : [];
+      if (t === 0 || t % 5 === 4) console.log('  procurando o registro novo no processo ' + CONFIG.processoFichas + ' (tentativa ' + (t + 1) + '/20, registros do cliente: ' + lista.length + ')');
       registro = lista.filter(function (x) { return x.codigoRegistro === cod; })[0] ||
         lista.filter(function (x) { return idsAntes.indexOf(String(x.id)) === -1; })
           .sort(function (a, b) { return Number(b.id) - Number(a.id); })[0] || null;
@@ -274,6 +284,7 @@
       var c = lista[i];
       if (!teste && progresso[c.p] && progresso[c.p].registro) continue;
       feitos++;
+      console.log('#' + feitos + ' começando cliente ' + c.p);
       try {
         var prep = await prepararCliente(c);
         var resumo = 'Vínculos (' + prep.vinculos.length + '): ' + prep.vinculos.map(function (v) { return v.nome + ' [tipo ' + (v.tipo || 'sem tipo') + ']'; }).join(', ');

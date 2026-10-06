@@ -4,6 +4,8 @@
     origem: '600',
     token: 'COLE_O_TOKEN_AQUI',
     eventoCriaFicha: 'COLE_O_TIPO_DE_EVENTO',
+    eventoOrigem: '903',
+    eventoToken: 'COLE_O_TOKEN_DO_EVENTO',
     processoFichas: '42',
     linkBase: 'https://rbacademy.apprbs.com.br/ficha_cadastral',
     campoLink: 'campopersonalizado_585_compl_proc',
@@ -35,8 +37,8 @@
   function esperar(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
   function digitos(v) { return String(v || '').replace(/\D/g, ''); }
 
-  function api(metodo, corpo) {
-    corpo = Object.assign({ origem: CONFIG.origem, token: CONFIG.token }, corpo);
+  function api(metodo, corpo, credencial) {
+    corpo = Object.assign({ origem: CONFIG.origem, token: CONFIG.token }, credencial || {}, corpo);
     var ctrl = new AbortController();
     var limite = setTimeout(function () { ctrl.abort(); }, 30000);
     return fetch(CONFIG.api + metodo, {
@@ -218,7 +220,7 @@
     var antes = await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas });
     var idsAntes = (antes && antes.success && Array.isArray(antes.dados) ? antes.dados : []).map(function (x) { return String(x.id); });
     console.log('  enviando o evento ' + CONFIG.eventoCriaFicha + ' com ' + prep.vinculos.length + ' vínculo(s)...');
-    var r = await api('Evento/cadastro', corpo);
+    var r = await api('Evento/cadastro', corpo, { origem: CONFIG.eventoOrigem, token: CONFIG.eventoToken });
     console.log('  resposta do evento:', JSON.stringify(r));
     if (!r || r.success === false) throw new Error('Evento/cadastro recusado: ' + JSON.stringify(r).slice(0, 300));
     var registro = null;
@@ -271,7 +273,7 @@
     opcoes = opcoes || {};
     var teste = opcoes.teste !== false;
     var limite = opcoes.limite || (teste ? 3 : CLIENTES.length);
-    if (!teste && (CONFIG.token.indexOf('COLE_') === 0 || CONFIG.eventoCriaFicha.indexOf('COLE_') === 0)) {
+    if (!teste && (CONFIG.token.indexOf('COLE_') === 0 || CONFIG.eventoCriaFicha.indexOf('COLE_') === 0 || CONFIG.eventoToken.indexOf('COLE_') === 0)) {
       console.error('Configure o token e o tipo de evento (eventoCriaFicha) antes de rodar sem teste.');
       return;
     }

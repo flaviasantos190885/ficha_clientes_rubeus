@@ -41,6 +41,9 @@ def main():
     js = js.replace("__CLIENTES__", json.dumps(lista, separators=(",", ":")))
     token = (RAIZ / ".token").read_text(encoding="utf-8").strip()
     js = js.replace("token: 'COLE_O_TOKEN_AQUI'", f"token: '{token}'", 1)
+    token_evento = RAIZ / ".token-evento"
+    if token_evento.exists():
+        js = js.replace("eventoToken: 'COLE_O_TOKEN_DO_EVENTO'", f"eventoToken: '{token_evento.read_text(encoding='utf-8').strip()}'", 1)
     if evento:
         js = js.replace("eventoCriaFicha: 'COLE_O_TIPO_DE_EVENTO'", f"eventoCriaFicha: '{evento}'", 1)
 

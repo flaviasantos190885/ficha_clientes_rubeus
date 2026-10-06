@@ -273,7 +273,7 @@
   window.fichaMigrar = async function (opcoes) {
     opcoes = opcoes || {};
     var teste = opcoes.teste !== false;
-    var limite = opcoes.limite || (teste ? 3 : CLIENTES.length);
+    var limite = opcoes.limite || CLIENTES.length;
     if (!teste && (CONFIG.token.indexOf('COLE_') === 0 || CONFIG.eventoCriaFicha.indexOf('COLE_') === 0 || CONFIG.eventoToken.indexOf('COLE_') === 0)) {
       console.error('Configure o token e o tipo de evento (eventoCriaFicha) antes de rodar sem teste.');
       return;
@@ -281,19 +281,27 @@
     var progresso = lerProgresso();
     var relatorio = [];
     var feitos = 0;
+    var jaTinham = 0;
     var lista = opcoes.clientes ? CLIENTES.filter(function (c) { return opcoes.clientes.indexOf(c.p) !== -1; }) : CLIENTES;
     console.log((teste ? '[TESTE - nada será criado] ' : '') + 'Clientes na lista: ' + lista.length + ' | limite desta rodada: ' + limite);
     for (var i = 0; i < lista.length && feitos < limite; i++) {
       var c = lista[i];
-      if (!teste && progresso[c.p] && (progresso[c.p].registro || progresso[c.p].evento)) continue;
       if (opcoes.pular && opcoes.pular.indexOf(c.p) !== -1) continue;
+      try {
+        var sit = await situacaoCliente(c.p);
+        if (sit.fichas.length) { jaTinham++; continue; }
+        if (sit.registros.length) c = Object.assign({}, c, { r: sit.registros });
+      } catch (e) {
+        console.warn('cliente', c.p, 'não consegui conferir as fichas:', e.message);
+        continue;
+      }
       feitos++;
-      console.log('#' + feitos + ' começando cliente ' + c.p);
+      console.log('#' + feitos + ' sem ficha, enviando: cliente ' + c.p);
       try {
         var prep = await prepararCliente(c);
         var resumo = 'Vínculos (' + prep.vinculos.length + '): ' + prep.vinculos.map(function (v) { return v.nome + ' [tipo ' + (v.tipo || 'sem tipo') + ']'; }).join(', ');
         if (teste) {
-          console.log('#' + feitos, prep.pj.nome, '\n  ' + resumo, '\n  vínculos:', prep.vinculos, '\n  campos:', prep.campos, '\n  dados do cliente (para conferir os nomes das propriedades):', prep.pj);
+          console.log('#' + feitos, prep.pj.nome, '| ' + resumo);
           relatorio.push([c.p, prep.pj.nome, 'teste', '', prep.vinculos.length, '', prep.link, resumo]);
         } else {
           var res = await criarRegistro(c, prep);
@@ -308,8 +316,8 @@
       }
       await esperar(CONFIG.pausaMs);
     }
-    baixarRelatorio(relatorio);
-    console.log('Fim. Relatório baixado (' + relatorio.length + ' linhas).');
+    console.log('Fim. Já tinham ficha: ' + jaTinham + ' | ' + (teste ? 'seriam enviados: ' : 'enviados: ') + feitos);
+    if (relatorio.length) baixarRelatorio(relatorio);
   };
 
   function listaDe(r) { return r && r.success && Array.isArray(r.dados) ? r.dados : []; }
@@ -366,86 +374,7 @@
     console.log('Pronto: ' + feito.prep.pj.nome + ' -> ' + (feito.res.registro ? 'registro ' + feito.res.registro : 'evento aceito (o fluxo cria o registro)'));
   };
 
-  function lerCsv(texto) {
-    texto = texto.replace(/^﻿/, '');
-    var sep = (texto.split('\n')[0].match(/;/g) || []).length > (texto.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
-    var linhas = [], linha = [], campo = '', aspas = false;
-    for (var i = 0; i < texto.length; i++) {
-      var ch = texto[i];
-      if (aspas) {
-        if (ch === '"' && texto[i + 1] === '"') { campo += '"'; i++; }
-        else if (ch === '"') aspas = false;
-        else campo += ch;
-      } else if (ch === '"') aspas = true;
-      else if (ch === sep) { linha.push(campo); campo = ''; }
-      else if (ch === '\n') { linha.push(campo.replace(/\r$/, '')); linhas.push(linha); linha = []; campo = ''; }
-      else campo += ch;
-    }
-    if (campo || linha.length) { linha.push(campo); linhas.push(linha); }
-    var cab = linhas.shift() || [];
-    return linhas.filter(function (l) { return l.length > 1; }).map(function (l) {
-      var o = {};
-      cab.forEach(function (c, k) { o[c.trim()] = (l[k] || '').trim(); });
-      return o;
-    });
-  }
-
-  function clientesDoCsv(linhas) {
-    var vazio = function (v) { return !v || v === '-' || v === '--' || v === '- - -'; };
-    var mapa = {};
-    linhas.forEach(function (r) {
-      var p = r['Identificador da pessoa'];
-      if (vazio(p)) return;
-      var c = mapa[p] || (mapa[p] = { p: p, r: [], nome: r['Nome da pessoa'] || '' });
-      if (!vazio(r['Identificador']) && c.r.indexOf(r['Identificador']) === -1) c.r.push(r['Identificador']);
-      if (!c.c && !vazio(r['Cidade'])) c.c = r['Cidade'] + (vazio(r['UF']) ? '' : ' - ' + r['UF']);
-    });
-    return Object.keys(mapa).map(function (k) { return mapa[k]; });
-  }
-
-  function escolherArquivo() {
-    return new Promise(function (ok) {
-      var caixa = document.createElement('div');
-      caixa.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif';
-      caixa.innerHTML = '<div style="background:#fff;padding:24px 28px;border-radius:8px;max-width:420px;text-align:center"><p style="margin:0 0 16px;font-size:15px">Escolha a exportação (CSV) do processo de gestão</p><input type="file" accept=".csv,text/csv"><p style="margin:16px 0 0"><button type="button" style="padding:6px 14px;cursor:pointer">Cancelar</button></p></div>';
-      document.body.appendChild(caixa);
-      caixa.querySelector('input').addEventListener('change', function (e) { var f = e.target.files[0]; caixa.remove(); ok(f || null); });
-      caixa.querySelector('button').addEventListener('click', function () { caixa.remove(); ok(null); });
-    });
-  }
-
-  window.fichaMigrarNovos = async function (opcoes) {
-    opcoes = opcoes || {};
-    var teste = opcoes.teste === true;
-    var arquivo = await escolherArquivo();
-    if (!arquivo) { console.warn('Nenhum arquivo escolhido.'); return; }
-    var clientes = clientesDoCsv(lerCsv(await arquivo.text()));
-    if (!clientes.length) { console.error('Não achei a coluna "Identificador da pessoa" no arquivo. Use a exportação do processo de gestão.'); return; }
-    var gestao = await processoGestao();
-    console.log((teste ? '[TESTE - nada será criado] ' : '') + 'Clientes no arquivo: ' + clientes.length + '. Verificando quem ainda não tem ficha...');
-    var relatorio = [], enviados = 0, comFicha = 0;
-    for (var i = 0; i < clientes.length; i++) {
-      var c = clientes[i];
-      try {
-        var fichas = listaDe(await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas }));
-        if (fichas.length) { comFicha++; continue; }
-        var registros = listaDe(await api('Contato/listarOportunidades', { id: c.p, processo: gestao })).map(function (x) { return String(x.id); });
-        c.r = registros.length ? registros : c.r;
-        console.log('#' + (enviados + 1) + ' sem ficha: ' + (c.nome || c.p) + ' (cliente ' + c.p + ')');
-        var feito = await enviarCliente(c, teste);
-        enviados++;
-        relatorio.push([c.p, feito.prep.pj.nome, teste ? 'teste' : (feito.res.registro ? 'criado' : 'evento aceito (registro pelo fluxo)'), feito.res ? feito.res.registro : '', feito.prep.vinculos.length, '', feito.prep.link, '']);
-      } catch (e) {
-        console.warn('cliente', c.p, 'erro:', e.message);
-        relatorio.push([c.p, c.nome, 'erro', '', '', '', '', e.message]);
-      }
-      await esperar(CONFIG.pausaMs);
-    }
-    console.log('Fim. Já tinham ficha: ' + comFicha + ' | ' + (teste ? 'seriam enviados: ' : 'enviados: ') + enviados + ' | erros: ' + relatorio.filter(function (l) { return l[2] === 'erro'; }).length);
-    if (relatorio.length) baixarRelatorio(relatorio);
-  };
-
   window.fichaMigracaoZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };
 
-  console.log('Script carregado. Só quem falta: fichaMigrarNovos()  |  Um cliente: fichaMigrarCliente(\'ID_DO_CLIENTE\')');
+  console.log('Script carregado. Conferir: fichaMigrar()  |  Enviar quem falta: fichaMigrar({ teste: false })  |  Um cliente: fichaMigrarCliente(\'ID_DO_CLIENTE\')');
 })();

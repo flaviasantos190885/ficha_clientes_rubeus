@@ -4,7 +4,7 @@
     origem: '903',
     token: 'COLE_O_TOKEN_AQUI',
     processoGestao: '76',
-    tipoNaoIdentificado: '',
+    tipoNaoIdentificado: '10',
     tiposFicha: ['93', '82', '2', '78'],
     baseLegal: '4',
     assinaturas: ['3', '5'],

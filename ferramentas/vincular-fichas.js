@@ -28,11 +28,14 @@
 
   function jaResolvida(p) {
     var ch = chavesDaPessoa(p);
-    for (var i = 0; i < ch.length; i++) if (JA_RESOLVIDAS[ch[i]]) return JA_RESOLVIDAS[ch[i]];
+    for (var i = 0; i < ch.length; i++) {
+      var r = JA_RESOLVIDAS[ch[i]];
+      if (r && mesmoNome(r.nome, p.nome)) return r.id;
+    }
     return '';
   }
 
-  function lembrar(p, id) { if (id) chavesDaPessoa(p).forEach(function (k) { JA_RESOLVIDAS[k] = id; }); }
+  function lembrar(p, id) { if (id) chavesDaPessoa(p).forEach(function (k) { JA_RESOLVIDAS[k] = { id: id, nome: p.nome }; }); }
 
   function esperar(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
   function digitos(v) { return String(v || '').replace(/\D/g, ''); }
@@ -41,13 +44,21 @@
     return semAcento(v).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/)
       .filter(function (t) { return t && ['de', 'da', 'do', 'das', 'dos', 'e'].indexOf(t) === -1; }).join(' ');
   }
+  function quase(a, b) {
+    if (a === b) return true;
+    if (a.length !== b.length || a.length < 5) return false;
+    var dif = 0;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) dif++;
+    return dif <= 1;
+  }
+
   function mesmoNome(a, b) {
     a = normNome(a); b = normNome(b);
     if (!a || !b) return false;
     if (a === b) return true;
     var ta = a.split(' '), tb = b.split(' ');
     var curto = ta.length <= tb.length ? ta : tb, longo = ta.length <= tb.length ? tb : ta;
-    return curto.length >= 2 && curto[0] === longo[0] && curto.every(function (t) { return longo.indexOf(t) !== -1; });
+    return curto.length >= 2 && curto[0] === longo[0] && curto.every(function (t) { return longo.some(function (l) { return quase(t, l); }); });
   }
 
   function api(metodo, corpo) {

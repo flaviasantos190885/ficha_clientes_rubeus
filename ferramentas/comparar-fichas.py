@@ -44,6 +44,14 @@ def valor(v):
     return "" if v in ("", "-", "--", "- - -") else v
 
 
+def quase(a, b):
+    if a == b:
+        return True
+    if len(a) != len(b) or len(a) < 5:
+        return False
+    return sum(x != y for x, y in zip(a, b)) <= 1
+
+
 def mesmo_nome(a, b):
     a, b = norm_nome(a), norm_nome(b)
     if not a or not b:
@@ -52,7 +60,7 @@ def mesmo_nome(a, b):
         return True
     ta, tb = a.split(), b.split()
     curto, longo = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
-    return len(curto) >= 2 and curto[0] == longo[0] and all(t in longo for t in curto)
+    return len(curto) >= 2 and curto[0] == longo[0] and all(any(quase(t, l) for l in longo) for t in curto)
 
 
 def secao_do_titulo(linha):
@@ -141,6 +149,14 @@ def ler_ficha(texto):
             for q in pessoas[max(antes - 1, 0):]:
                 q["colunas"] = True
     pessoas = [limpar(p) for p in pessoas if p.get("nome") or p.get("email")]
+    for campo_unico in ("cpf", "email"):
+        donos = {}
+        for p in pessoas:
+            if p.get(campo_unico):
+                donos.setdefault(p[campo_unico], set()).add(norm_nome(p["nome"]))
+        for p in pessoas:
+            if p.get(campo_unico) and len(donos[p[campo_unico]]) > 1 and not all(mesmo_nome(a, p["nome"]) for a in donos[p[campo_unico]]):
+                p[campo_unico] = ""
     return cliente, pessoas
 
 
@@ -186,7 +202,7 @@ def limpar(p):
     nome = re.sub(r"(?i)\b(e-?mail|telefone|cpf)\s*:.*$", "", nome).strip(" :-|")
     if sum(c.isdigit() for c in nome) >= 6 or not re.search(r"[A-Za-zÀ-ú]{2}", nome):
         nome = ""
-    if "|" in nome or "/" in nome or re.search(r"(?i)\s(ou|e)\s.*\s(ou|e)\s|\sou\s", nome) or len(digitos(bruto["cpf"])) > 11:
+    if "|" in nome or "/" in nome or "&" in nome or re.search(r"(?i)\s(ou|e)\s.*\s(ou|e)\s|\sou\s", nome) or len(digitos(bruto["cpf"])) > 11:
         out["revisar"] = "mais de uma pessoa na mesma linha"
     out["nome"] = re.sub(r"\s+", " ", nome).strip(" -/|")
     if not out["nome"]:

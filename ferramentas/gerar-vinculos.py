@@ -1,5 +1,5 @@
 """Monta para-colar/vincular-fichas.js (fora do git) a partir de ferramentas/vincular-fichas.js, com o
-token do arquivo .token e as pessoas de saida/fichas/pessoas-para-vincular.json (gerado por
+token do arquivo .token-evento (origem 903, RpR - Ficha Cadastral) e as pessoas de saida/fichas/pessoas-para-vincular.json (gerado por
 comparar-fichas.py). Só entram os clientes encontrados pelo CNPJ.
 
 Uso:
@@ -21,7 +21,7 @@ def main():
         c.pop("arquivo", None)
     js = (RAIZ / "ferramentas" / "vincular-fichas.js").read_text(encoding="utf-8")
     js = js.replace("__DADOS__", json.dumps(dados, ensure_ascii=False, separators=(",", ":")))
-    token = (RAIZ / ".token").read_text(encoding="utf-8").strip()
+    token = (RAIZ / ".token-evento").read_text(encoding="utf-8").strip()
     js = js.replace("token: 'COLE_O_TOKEN_AQUI'", f"token: '{token}'", 1)
     saida = RAIZ / "para-colar"
     saida.mkdir(exist_ok=True)

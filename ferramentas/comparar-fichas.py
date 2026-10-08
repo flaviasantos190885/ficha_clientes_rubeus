@@ -133,17 +133,57 @@ def ler_ficha(texto):
                 atual = {"papel": secao}
                 pessoas.append(atual)
             atual[c] = val
-    pessoas = [p for p in pessoas if p.get("nome") or p.get("email")]
-    for p in pessoas:
-        if p.get("email"):
-            m = re.search(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", p["email"])
-            p["email"] = m.group(0).lower() if m else p["email"]
-        if p.get("cpf"):
-            d = digitos(p["cpf"])
-            p["cpf"] = f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else p["cpf"]
-        if p.get("telefone"):
-            p["telefone"] = digitos(p["telefone"])
+    pessoas = [limpar(p) for p in pessoas if p.get("nome") or p.get("email")]
     return cliente, pessoas
+
+
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
+
+
+def cpf_valido(d):
+    if len(d) != 11 or len(set(d)) == 1:
+        return False
+    for t in (9, 10):
+        s = sum(int(d[i]) * (t + 1 - i) for i in range(t))
+        if (s * 10 % 11) % 10 != int(d[t]):
+            return False
+    return True
+
+
+def parece_telefone(v):
+    d = digitos(v)
+    return 10 <= len(d) <= 13 and not cpf_valido(d[-11:] if len(d) == 11 else "")
+
+
+def limpar(p):
+    """Arruma campos trocados na ficha (telefone no e-mail ou no CPF, e-mail no nome) e marca o que
+    precisa de revisão manual (duas pessoas na mesma linha, sem nome e sem e-mail)."""
+    bruto = {k: (p.get(k) or "").strip() for k in ("nome", "email", "cpf", "telefone")}
+    out = {"papel": p["papel"], "nome": "", "email": "", "cpf": "", "telefone": "", "revisar": ""}
+    todos = " ".join(bruto.values())
+    m = EMAIL.search(bruto["email"]) or EMAIL.search(todos)
+    out["email"] = m.group(0).lower() if m else ""
+    d = digitos(bruto["cpf"])
+    if cpf_valido(d):
+        out["cpf"] = f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    tel = digitos(bruto["telefone"])
+    if 10 <= len(tel) <= 13:
+        out["telefone"] = tel
+    else:
+        for k in ("email", "cpf", "nome"):
+            if not EMAIL.search(bruto[k]) and parece_telefone(bruto[k]):
+                out["telefone"] = digitos(bruto[k])
+                break
+    nome = EMAIL.sub("", bruto["nome"])
+    nome = re.sub(r"(?i)\b(e-?mail|telefone|cpf)\s*:.*$", "", nome).strip(" :-|")
+    if sum(c.isdigit() for c in nome) >= 6 or not re.search(r"[A-Za-zÀ-ú]{2}", nome):
+        nome = ""
+    if "|" in nome or re.search(r"(?i)\s(ou|e)\s.*\s(ou|e)\s|\sou\s", nome) or len(digitos(bruto["cpf"])) > 11:
+        out["revisar"] = "mais de uma pessoa na mesma linha"
+    out["nome"] = nome or out["email"]
+    if not out["nome"]:
+        out["revisar"] = "sem nome e sem e-mail"
+    return out
 
 
 def cnpj14(v):
@@ -271,6 +311,9 @@ def main():
             linhas_pes.append({"Cliente": g["nome"], "ID do cliente": g["id"], "Papel na ficha": PAPEIS.get(p["papel"], {}).get("titulo", p["papel"]),
                                "Nome": p.get("nome", ""), "E-mail": p.get("email", ""), "CPF": p.get("cpf", ""), "Telefone": p.get("telefone", ""),
                                "Situação na gestão": sit, "Nome na gestão": nome_gestao, "Arquivo": f["arquivo"]})
+            if p.get("revisar"):
+                linhas_pes[-1]["Situação na gestão"] = "revisar: " + p["revisar"]
+                continue
             if p["papel"] in PAPEIS and (sit == "faltando" or sit.startswith("vinculado como não identificado")):
                 cli_v["pessoas"].append(dict(p, tipo=PAPEIS[p["papel"]]["tipo"], situacao=sit))
         if cli_v["pessoas"]:

@@ -151,6 +151,20 @@
     if (digitos(p.cpf)) corpo.cpf = digitos(p.cpf);
     var r = await api('Contato/cadastro', corpo);
     var id = idDaResposta(r);
+    var mapa = { emailPrincipal: 'emailPrincipal', email: 'emailPrincipal', cpf: 'cpf', telefonePrincipal: 'telefonePrincipal', telefone: 'telefonePrincipal' };
+    for (var t = 0; !id && t < 3 && r && Array.isArray(r.erro); t++) {
+      var tirar = r.erro.map(function (e) { return mapa[e.campo]; }).filter(function (c) { return c && corpo[c]; });
+      if (!tirar.length) break;
+      tirar.forEach(function (c) { delete corpo[c]; });
+      console.log('   ' + p.nome + ': a Rubeus recusou ' + tirar.join(', ') + '; cadastrando sem esse campo');
+      r = await api('Contato/cadastro', corpo);
+      id = idDaResposta(r);
+    }
+    if (!id && r && r.erro === 'resposta não é JSON') {
+      await esperar(3000);
+      r = await api('Contato/cadastro', corpo);
+      id = idDaResposta(r);
+    }
     if (!id) throw new Error('cadastro de ' + p.nome + ' recusado: ' + JSON.stringify(r).slice(0, 200));
     return id;
   }
@@ -166,10 +180,10 @@
   }
 
   function planejar(pessoas, alvos) {
-    var lista = pessoas.map(function (p) { return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0') }; });
+    var lista = pessoas.map(function (p) { return { id: String(p.id), tipo: String(p.tipo || ''), principal: String(p.principal || '0'), nome: p.nome || '' }; });
     var mudancas = [];
     alvos.forEach(function (a) {
-      if (lista.some(function (p) { return p.id === a.id && p.tipo === a.tipo; })) return;
+      if (lista.some(function (p) { return p.tipo === a.tipo && (p.id === a.id || (p.nome && mesmoNome(p.nome, a.nome))); })) return;
       var trocar = a.naoIdentificado && CONFIG.tipoNaoIdentificado &&
         lista.filter(function (p) { return p.id === a.id && p.tipo === CONFIG.tipoNaoIdentificado; })[0];
       if (trocar) {
@@ -182,6 +196,46 @@
     });
     return { lista: lista, mudancas: mudancas };
   }
+
+  function presente(pessoas, a) {
+    return pessoas.some(function (x) {
+      return String(x.tipo) === a.tipo && (String(x.id) === a.id || (x.nome && mesmoNome(x.nome, a.nome)));
+    });
+  }
+
+  window.fichaConferir = async function (opcoes) {
+    opcoes = opcoes || {};
+    var lista = opcoes.clientes ? DADOS.filter(function (c) { return opcoes.clientes.indexOf(c.cliente) !== -1; }) : DADOS;
+    var linhas = [], faltam = [], completos = 0;
+    console.log('Conferindo ' + lista.length + ' cliente(s) direto nos registros da gestão (nada é alterado)...');
+    for (var i = 0; i < lista.length; i++) {
+      var c = lista[i];
+      try {
+        var registros = await registrosDoCliente(c);
+        var falta = [];
+        for (var r = 0; r < registros.length; r++) {
+          var ps = await pessoasDoRegistro(registros[r]);
+          if (!ps) throw new Error('não consegui ler o registro ' + registros[r]);
+          c.pessoas.forEach(function (p) {
+            var ok = presente(ps, { id: '', tipo: p.tipo, nome: p.nome });
+            linhas.push([c.cliente, c.nome, p.nome, NOMES_TIPO[p.tipo], p.tipo, '', '', registros[r], ok ? 'ok' : 'FALTANDO', '']);
+            if (!ok) falta.push(p.nome + ' [' + NOMES_TIPO[p.tipo] + '] no registro ' + registros[r]);
+          });
+        }
+        if (falta.length) { faltam.push(c.cliente); console.log('#' + (i + 1) + ' ' + c.nome + ': faltando ' + falta.join('; ')); }
+        else completos++;
+      } catch (e) {
+        faltam.push(c.cliente);
+        console.warn('#' + (i + 1) + ' ' + c.nome + ': erro ' + e.message);
+        linhas.push([c.cliente, c.nome, '', '', '', '', '', '', 'erro: ' + e.message, '']);
+      }
+      await esperar(CONFIG.pausaMs);
+    }
+    console.log('Fim da conferência. Clientes completos: ' + completos + ' | com algo faltando ou erro: ' + faltam.length);
+    if (faltam.length) console.log('Para refazer só esses: fichaVincular({ teste: false, clientes: ' + JSON.stringify(faltam) + ', refazer: ' + JSON.stringify(faltam) + ' })');
+    baixar('conferencia-vinculos-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv', linhas);
+    return faltam;
+  };
 
   function lerProgresso() { try { return JSON.parse(localStorage.getItem(CHAVE) || '{}'); } catch (e) { return {}; } }
   function salvarProgresso(p) { try { localStorage.setItem(CHAVE, JSON.stringify(p)); } catch (e) {} }
@@ -256,9 +310,9 @@
           var plano = planejar(porRegistro[registros[k]], alvos.filter(function (a) { return a.id && a.id.indexOf('novo-') !== 0; }).concat(teste ? alvos.filter(function (a) { return a.id.indexOf('novo-') === 0; }) : []));
           if (!plano.mudancas.length) { resultadoRegistros.push(registros[k] + ': nada a mudar'); continue; }
           if (teste) { resultadoRegistros.push(registros[k] + ': ' + plano.mudancas.join('; ')); continue; }
-          var resp = await api('Oportunidade/alterarPessoas', { id: registros[k], pessoas: plano.lista });
+          var resp = await api('Oportunidade/alterarPessoas', { id: registros[k], pessoas: plano.lista.map(function (x) { return { id: x.id, tipo: x.tipo, principal: x.principal }; }) });
           var depois = await pessoasDoRegistro(registros[k]) || [];
-          var faltando = alvos.filter(function (a) { return !depois.some(function (x) { return String(x.id) === a.id && String(x.tipo) === a.tipo; }); });
+          var faltando = alvos.filter(function (a) { return !presente(depois, a); });
           contagem.vinculos += plano.mudancas.length - faltando.length;
           resultadoRegistros.push(registros[k] + ': ' + (faltando.length ? 'ATENÇÃO, não entrou: ' + faltando.map(function (a) { return a.nome + ' (id ' + a.id + ', tipo ' + a.tipo + ')'; }).join(', ') + ' | no registro agora: ' + depois.map(function (x) { return x.id + ':' + x.tipo; }).join(', ') + (resp && resp.success === false ? ' | resposta: ' + JSON.stringify(resp).slice(0, 150) : '') : 'ok, ' + plano.mudancas.length + ' mudança(s)'));
           await esperar(CONFIG.pausaMs);
@@ -279,5 +333,5 @@
 
   window.fichaVinculosZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };
 
-  console.log('Script de vínculos carregado (' + DADOS.length + ' clientes). Teste: fichaVincular({ limite: 5 })  |  Real: fichaVincular({ teste: false, limite: 2 })');
+  console.log('Script de vínculos carregado (' + DADOS.length + ' clientes). Conferir: fichaConferir()  |  Vincular: fichaVincular({ teste: false })');
 })();

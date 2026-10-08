@@ -16,6 +16,23 @@
   var DADOS = __DADOS__;
 
   var CHAVE = 'fc-vinculos-fichas';
+  var JA_RESOLVIDAS = {};
+
+  function chavesDaPessoa(p) {
+    var out = [];
+    if (p.email) out.push('e:' + String(p.email).toLowerCase());
+    if (digitos(p.cpf).length === 11) out.push('c:' + digitos(p.cpf));
+    if (normNome(p.nome)) out.push('n:' + normNome(p.nome));
+    return out;
+  }
+
+  function jaResolvida(p) {
+    var ch = chavesDaPessoa(p);
+    for (var i = 0; i < ch.length; i++) if (JA_RESOLVIDAS[ch[i]]) return JA_RESOLVIDAS[ch[i]];
+    return '';
+  }
+
+  function lembrar(p, id) { if (id) chavesDaPessoa(p).forEach(function (k) { JA_RESOLVIDAS[k] = id; }); }
 
   function esperar(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
   function digitos(v) { return String(v || '').replace(/\D/g, ''); }
@@ -184,6 +201,7 @@
     opcoes = opcoes || {};
     var teste = opcoes.teste !== false;
     if (opcoes.tipoNaoIdentificado) CONFIG.tipoNaoIdentificado = String(opcoes.tipoNaoIdentificado);
+    JA_RESOLVIDAS = {};
     if (CONFIG.token.indexOf('COLE_') === 0) { console.error('Token não configurado.'); return; }
     if (!teste && !CONFIG.tipoNaoIdentificado && DADOS.some(function (c) { return c.pessoas.some(function (p) { return p.situacao.indexOf('não identificado') !== -1; }); })) {
       console.error('Rode primeiro o teste e informe o tipo de "não identificado": fichaVincular({ teste: false, tipoNaoIdentificado: \'NÚMERO\' })');
@@ -196,8 +214,9 @@
     console.log((teste ? '[TESTE - nada será alterado] ' : '') + 'Clientes: ' + lista.length + ' | limite: ' + limite);
     for (var i = 0; i < lista.length && feitos < limite; i++) {
       var c = lista[i];
-      if (!teste && progresso[c.cliente]) continue;
+      if (!teste && progresso[c.cliente] && !(opcoes.refazer && opcoes.refazer.indexOf(c.cliente) !== -1)) continue;
       feitos++;
+      JA_RESOLVIDAS = {};
       console.log('#' + feitos + ' ' + c.nome + ' (' + c.pessoas.length + ' pessoa(s))');
       try {
         var registros = await registrosDoCliente(c);
@@ -212,18 +231,21 @@
         var alvos = [];
         for (var j = 0; j < c.pessoas.length; j++) {
           var p = c.pessoas[j];
-          var achada = await acharPessoa(p, noRegistro);
+          var repetida = jaResolvida(p);
+          var achada = repetida ? { id: repetida, via: 'mesma pessoa de outro papel' } : await acharPessoa(p, noRegistro);
           var id = achada ? achada.id : '';
           var via = achada ? achada.via : 'novo cadastro';
-          if (achada) contagem.achadas++;
+          if (!id && teste) { id = 'novo-' + chavesDaPessoa(p)[0]; via = 'novo cadastro'; achada = null; }
+          if (achada && !repetida) contagem.achadas++;
           if (p.situacao.indexOf('não identificado') !== -1 && id) {
             noRegistro.filter(function (x) { return String(x.id) === id; }).forEach(function (x) {
               if (CONFIG.tiposFicha.indexOf(String(x.tipo)) === -1) tiposNaoIdent[x.tipo] = (tiposNaoIdent[x.tipo] || 0) + 1;
             });
           }
           if (!id && !teste) { id = await cadastrar(p); contagem.criadas++; }
+          lembrar(p, id);
           var div = divergencias(p, achada && achada.dados);
-          console.log('   ' + p.nome + ' [' + NOMES_TIPO[p.tipo] + '] -> ' + (id || '(seria cadastrado)') + ' | ' + via + (div ? ' | ' + div : ''));
+          console.log('   ' + p.nome + ' [' + NOMES_TIPO[p.tipo] + '] -> ' + (id.indexOf('novo-') === 0 ? '(seria cadastrado)' : id) + ' | ' + via + (div ? ' | ' + div : ''));
           alvos.push({ id: id, tipo: p.tipo, nome: p.nome, naoIdentificado: p.situacao.indexOf('não identificado') !== -1 });
           relatorio.push([c.cliente, c.nome, p.nome, NOMES_TIPO[p.tipo], p.tipo, id, via, registros.join(', '), '', div]);
           await esperar(CONFIG.pausaMs);
@@ -231,14 +253,14 @@
         var linhasCliente = relatorio.slice(relatorio.length - c.pessoas.length);
         var resultadoRegistros = [];
         for (var k = 0; k < registros.length; k++) {
-          var plano = planejar(porRegistro[registros[k]], alvos.filter(function (a) { return a.id; }));
+          var plano = planejar(porRegistro[registros[k]], alvos.filter(function (a) { return a.id && a.id.indexOf('novo-') !== 0; }).concat(teste ? alvos.filter(function (a) { return a.id.indexOf('novo-') === 0; }) : []));
           if (!plano.mudancas.length) { resultadoRegistros.push(registros[k] + ': nada a mudar'); continue; }
           if (teste) { resultadoRegistros.push(registros[k] + ': ' + plano.mudancas.join('; ')); continue; }
           var resp = await api('Oportunidade/alterarPessoas', { id: registros[k], pessoas: plano.lista });
           var depois = await pessoasDoRegistro(registros[k]) || [];
           var faltando = alvos.filter(function (a) { return !depois.some(function (x) { return String(x.id) === a.id && String(x.tipo) === a.tipo; }); });
           contagem.vinculos += plano.mudancas.length - faltando.length;
-          resultadoRegistros.push(registros[k] + ': ' + (faltando.length ? 'ATENÇÃO, não entrou: ' + faltando.map(function (a) { return a.nome + ' (' + a.tipo + ')'; }).join(', ') + ' | resposta: ' + JSON.stringify(resp).slice(0, 150) : 'ok, ' + plano.mudancas.length + ' mudança(s)'));
+          resultadoRegistros.push(registros[k] + ': ' + (faltando.length ? 'ATENÇÃO, não entrou: ' + faltando.map(function (a) { return a.nome + ' (id ' + a.id + ', tipo ' + a.tipo + ')'; }).join(', ') + ' | no registro agora: ' + depois.map(function (x) { return x.id + ':' + x.tipo; }).join(', ') + (resp && resp.success === false ? ' | resposta: ' + JSON.stringify(resp).slice(0, 150) : '') : 'ok, ' + plano.mudancas.length + ' mudança(s)'));
           await esperar(CONFIG.pausaMs);
         }
         console.log('   registros: ' + resultadoRegistros.join(' || '));

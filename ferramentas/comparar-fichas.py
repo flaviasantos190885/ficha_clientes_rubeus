@@ -148,7 +148,7 @@ def ler_ficha(texto):
         if lado_a_lado:
             for q in pessoas[max(antes - 1, 0):]:
                 q["colunas"] = True
-    pessoas = [limpar(p) for p in pessoas if p.get("nome") or p.get("email")]
+    pessoas = [limpar(q) for p in pessoas if p.get("nome") or p.get("email") for q in dividir(p)]
     for campo_unico in ("cpf", "email"):
         donos = {}
         for p in pessoas:
@@ -176,6 +176,24 @@ def cpf_valido(d):
 def parece_telefone(v):
     d = digitos(v)
     return 10 <= len(d) <= 13 and not cpf_valido(d[-11:] if len(d) == 11 else "")
+
+
+def dividir(p):
+    """'Ana Silva / Beto Souza' com 'ana@x / beto@x' vira duas pessoas, pareando nome, e-mail e telefone."""
+    nomes = [n.strip() for n in re.split(r"\s*(?:/|\||&|\s+e\s+)\s*", p.get("nome") or "") if n.strip()]
+    if len(nomes) < 2 or not all(len(n.split()) >= 2 for n in nomes):
+        return [p]
+    emails = [m.group(0) for m in EMAIL.finditer(p.get("email") or "")]
+    if len(emails) != len(nomes):
+        return [p]
+    tels = [t for t in re.split(r"\s*/\s*", p.get("telefone") or "") if digitos(t)]
+    cpfs = [c for c in re.split(r"\s*/\s*", p.get("cpf") or "") if digitos(c)]
+    out = []
+    for i, n in enumerate(nomes):
+        out.append({"papel": p["papel"], "nome": n, "email": emails[i],
+                    "telefone": tels[i] if len(tels) == len(nomes) else "",
+                    "cpf": cpfs[i] if len(cpfs) == len(nomes) else ""})
+    return out
 
 
 def limpar(p):
@@ -340,7 +358,7 @@ def main():
             if p.get("revisar"):
                 linhas_pes[-1]["Situação na gestão"] = "revisar: " + p["revisar"]
                 continue
-            if p["papel"] in PAPEIS and (sit == "faltando" or sit.startswith("vinculado como não identificado")):
+            if p["papel"] in PAPEIS and sit != "ok" and not sit.startswith("papel fora"):
                 cli_v["pessoas"].append(dict(p, tipo=PAPEIS[p["papel"]]["tipo"], situacao=sit))
         if cli_v["pessoas"]:
             vincular.append(cli_v)

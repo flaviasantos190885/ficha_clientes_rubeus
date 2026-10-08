@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leitor de fichas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root { --verde: #12857f; --borda: #ddd; --texto: #222; --cinza: #666; --fundo: #fff; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.5 Arial, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { color: var(--verde); font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: var(--cinza); margin: 0 0 20px; }
+  .caixa { border: 1px solid var(--borda); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .caixa h2 { font-size: 15px; margin: 0 0 8px; }
+  label.botao, button { display: inline-block; background: var(--verde); color: #fff; border: 0; border-radius: 6px; padding: 9px 16px; cursor: pointer; font: inherit; margin: 4px 8px 4px 0; }
+  button[disabled] { opacity: .5; cursor: default; }
+  input[type=file] { display: none; }
+  #status { font-weight: bold; margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--borda); padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+  .ok { color: #1b7f3a; } .aviso { color: #a35d00; } .erro { color: #b00020; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Leitor de fichas cadastrais</h1>
+  <p class="sub">Lê as fichas (DOCX e PDF) aqui no seu computador e gera um arquivo pequeno só com o texto. Nada é enviado para a internet.</p>
+
+  <div class="caixa">
+    <h2>1. Escolha as fichas</h2>
+    <label class="botao">Escolher pasta<input id="pasta" type="file" webkitdirectory multiple></label>
+    <label class="botao">Escolher arquivo .zip ou fichas<input id="arquivos" type="file" multiple accept=".zip,.docx,.pdf"></label>
+    <div id="status">Nenhum arquivo escolhido.</div>
+  </div>
+
+  <div class="caixa">
+    <h2>2. Baixe o resultado e mande no chat</h2>
+    <button id="baixar" disabled>Baixar fichas-texto.json</button>
+    <span id="resumo"></span>
+  </div>
+
+  <table>
+    <thead><tr><th>Arquivo</th><th>Tipo</th><th>Situação</th></tr></thead>
+    <tbody id="lista"></tbody>
+  </table>
+</main>
+<script>
+(function () {
+  if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  var resultado = [];
+  var $ = function (id) { return document.getElementById(id); };
+
+  function linha(caminho, tipo, situacao, classe) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td></td><td></td><td></td>';
+    tr.children[0].textContent = caminho;
+    tr.children[1].textContent = tipo;
+    tr.children[2].textContent = situacao;
+    tr.children[2].className = classe || '';
+    $('lista').appendChild(tr);
+  }
+
+  function extensao(nome) { var m = /\.([a-z0-9]+)$/i.exec(nome); return m ? m[1].toLowerCase() : ''; }
+
+  function textoDoNo(no) {
+    var out = '';
+    for (var i = 0; i < no.childNodes.length; i++) {
+      var f = no.childNodes[i];
+      if (f.nodeType !== 1) continue;
+      var n = f.localName;
+      if (n === 't') out += f.textContent;
+      else if (n === 'tab') out += '\t';
+      else if (n === 'br' || n === 'cr') out += '\n';
+      else if (n === 'p') out += textoDoNo(f) + '\n';
+      else if (n === 'tbl') out += tabela(f);
+      else out += textoDoNo(f);
+    }
+    return out;
+  }
+
+  function tabela(tbl) {
+    var out = '';
+    for (var i = 0; i < tbl.childNodes.length; i++) {
+      var tr = tbl.childNodes[i];
+      if (tr.nodeType !== 1 || tr.localName !== 'tr') continue;
+      var celulas = [];
+      for (var j = 0; j < tr.childNodes.length; j++) {
+        var tc = tr.childNodes[j];
+        if (tc.nodeType === 1 && tc.localName === 'tc') celulas.push(textoDoNo(tc).replace(/\s*\n\s*/g, ' ').trim());
+      }
+      out += celulas.join(' | ') + '\n';
+    }
+    return out;
+  }
+
+  async function lerDocx(dados) {
+    var zip = await JSZip.loadAsync(dados);
+    var doc = zip.file('word/document.xml');
+    if (!doc) throw new Error('DOCX sem document.xml');
+    var xml = new DOMParser().parseFromString(await doc.async('string'), 'application/xml');
+    var corpo = xml.getElementsByTagNameNS('*', 'body')[0];
+    var texto = corpo ? textoDoNo(corpo) : '';
+    var meta = {};
+    var core = zip.file('docProps/core.xml');
+    if (core) {
+      var c = new DOMParser().parseFromString(await core.async('string'), 'application/xml');
+      var pega = function (n) { var e = c.getElementsByTagNameNS('*', n)[0]; return e ? e.textContent : ''; };
+      meta.docCriado = pega('created');
+      meta.docModificado = pega('modified');
+    }
+    return { texto: texto.replace(/\n{3,}/g, '\n\n').trim(), meta: meta };
+  }
+
+  async function lerPdf(dados) {
+    var pdf = await pdfjsLib.getDocument({ data: new Uint8Array(dados) }).promise;
+    var texto = '';
+    for (var p = 1; p <= pdf.numPages; p++) {
+      var pagina = await pdf.getPage(p);
+      var conteudo = await pagina.getTextContent();
+      conteudo.items.forEach(function (it) { texto += it.str + (it.hasEOL ? '\n' : ' '); });
+      texto += '\n';
+    }
+    var meta = {};
+    try {
+      var info = (await pdf.getMetadata()).info || {};
+      meta.docCriado = info.CreationDate || '';
+      meta.docModificado = info.ModDate || '';
+    } catch (e) {}
+    return { texto: texto.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(), meta: meta };
+  }
+
+  async function processar(caminho, dados, modificado) {
+    var ext = extensao(caminho);
+    if (/(^|\/)(__MACOSX|\.)/.test(caminho)) return;
+    if (ext === 'zip') {
+      var zip = await JSZip.loadAsync(dados);
+      var nomes = Object.keys(zip.files).filter(function (n) { return !zip.files[n].dir; });
+      for (var i = 0; i < nomes.length; i++) {
+        var f = zip.files[nomes[i]];
+        await processar(caminho + '/' + nomes[i], await f.async('arraybuffer'), f.date ? f.date.toISOString() : '');
+      }
+      return;
+    }
+    var item = { caminho: caminho, tipo: ext, tamanho: dados.byteLength, modificado: modificado || '' };
+    if (ext !== 'docx' && ext !== 'pdf') {
+      item.aviso = 'formato não lido';
+      resultado.push(item);
+      linha(caminho, ext || '?', 'ignorado (só DOCX e PDF)', 'aviso');
+      return;
+    }
+    try {
+      var lido = ext === 'docx' ? await lerDocx(dados) : await lerPdf(dados);
+      item.texto = lido.texto;
+      Object.assign(item, lido.meta);
+      if (!lido.texto) {
+        item.aviso = 'sem texto (talvez escaneado)';
+        linha(caminho, ext, 'sem texto (talvez escaneado)', 'aviso');
+      } else {
+        linha(caminho, ext, 'lido (' + lido.texto.length + ' caracteres)', 'ok');
+      }
+    } catch (e) {
+      item.aviso = 'erro: ' + e.message;
+      linha(caminho, ext, 'erro: ' + e.message, 'erro');
+    }
+    resultado.push(item);
+  }
+
+  async function receber(lista) {
+    if (!lista.length) return;
+    if (!window.JSZip || !window.pdfjsLib) {
+      $('status').textContent = 'Não consegui carregar os leitores de DOCX/PDF. Confira a internet e abra a página de novo.';
+      $('status').className = 'erro';
+      return;
+    }
+    $('baixar').disabled = true;
+    for (var i = 0; i < lista.length; i++) {
+      var f = lista[i];
+      var caminho = f.webkitRelativePath || f.name;
+      $('status').textContent = 'Lendo ' + (i + 1) + ' de ' + lista.length + ': ' + caminho;
+      try {
+        await processar(caminho, await f.arrayBuffer(), f.lastModified ? new Date(f.lastModified).toISOString() : '');
+      } catch (e) {
+        resultado.push({ caminho: caminho, aviso: 'erro: ' + e.message });
+        linha(caminho, extensao(caminho), 'erro: ' + e.message, 'erro');
+      }
+    }
+    var lidos = resultado.filter(function (r) { return r.texto; }).length;
+    $('status').textContent = 'Pronto. Fichas lidas: ' + lidos + ' de ' + resultado.length + ' arquivo(s).';
+    $('status').className = 'ok';
+    $('resumo').textContent = lidos + ' ficha(s) com texto';
+    $('baixar').disabled = !resultado.length;
+  }
+
+  $('pasta').addEventListener('change', function (e) { receber(Array.from(e.target.files)); e.target.value = ''; });
+  $('arquivos').addEventListener('change', function (e) { receber(Array.from(e.target.files)); e.target.value = ''; });
+  $('baixar').addEventListener('click', function () {
+    var json = JSON.stringify({ gerado: new Date().toISOString(), arquivos: resultado });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = 'fichas-texto.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+})();
+</script>
+</body>
+</html>

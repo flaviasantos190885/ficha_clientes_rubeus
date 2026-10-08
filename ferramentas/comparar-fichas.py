@@ -94,7 +94,7 @@ def campo(rotulo):
 
 
 def pares(linha):
-    if "|" in linha:
+    if "|" in linha and not re.search(ROTULOS + r"\s*:", linha.partition("|")[0]):
         rot, _, val = linha.partition("|")
         return [(rot.strip(), val.strip())]
     partes = re.split(ROTULOS + r"\s*:", linha)
@@ -116,7 +116,11 @@ def ler_ficha(texto):
         if s:
             secao, atual = s, None
             continue
-        for rot, val in pares(linha):
+        lista_pares = pares(linha)
+        rotulos_linha = [campo(r) for r, _ in lista_pares]
+        lado_a_lado = any(a == b == "nome" for a, b in zip(rotulos_linha, rotulos_linha[1:]))
+        antes = len(pessoas)
+        for rot, val in lista_pares:
             c = campo(rot)
             val = valor(val)
             if not c or not val:
@@ -133,6 +137,9 @@ def ler_ficha(texto):
                 atual = {"papel": secao}
                 pessoas.append(atual)
             atual[c] = val
+        if lado_a_lado:
+            for q in pessoas[max(antes - 1, 0):]:
+                q["colunas"] = True
     pessoas = [limpar(p) for p in pessoas if p.get("nome") or p.get("email")]
     return cliente, pessoas
 
@@ -175,14 +182,17 @@ def limpar(p):
                 out["telefone"] = digitos(bruto[k])
                 break
     nome = EMAIL.sub("", bruto["nome"])
+    nome = re.sub(r"\(?\d{2}\)?\s*9?\s*\d{4}[\s.-]?\d{4}", " ", nome)
     nome = re.sub(r"(?i)\b(e-?mail|telefone|cpf)\s*:.*$", "", nome).strip(" :-|")
     if sum(c.isdigit() for c in nome) >= 6 or not re.search(r"[A-Za-zÀ-ú]{2}", nome):
         nome = ""
-    if "|" in nome or re.search(r"(?i)\s(ou|e)\s.*\s(ou|e)\s|\sou\s", nome) or len(digitos(bruto["cpf"])) > 11:
+    if "|" in nome or "/" in nome or re.search(r"(?i)\s(ou|e)\s.*\s(ou|e)\s|\sou\s", nome) or len(digitos(bruto["cpf"])) > 11:
         out["revisar"] = "mais de uma pessoa na mesma linha"
-    out["nome"] = nome or out["email"]
+    out["nome"] = re.sub(r"\s+", " ", nome).strip(" -/|")
     if not out["nome"]:
-        out["revisar"] = "sem nome e sem e-mail"
+        out["revisar"] = "ficha sem nome da pessoa"
+    if p.get("colunas"):
+        out["revisar"] = "pessoas em colunas lado a lado na ficha"
     return out
 
 

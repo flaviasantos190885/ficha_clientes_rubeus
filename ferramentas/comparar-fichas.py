@@ -265,7 +265,7 @@ def main():
                            "Encontrado por": f["como"] if g else "", "Uso": uso, "Pessoas lidas": len(f.get("pessoas") or [])})
         if not usada:
             continue
-        cli_v = {"cliente": g["id"], "nome": g["nome"], "registros": g["registros"], "arquivo": f["arquivo"], "pessoas": []}
+        cli_v = {"cliente": g["id"], "nome": g["nome"], "registros": g["registros"], "arquivo": f["arquivo"], "como": f["como"], "pessoas": []}
         for p in f["pessoas"]:
             sit, nome_gestao = situacao(p, g)
             linhas_pes.append({"Cliente": g["nome"], "ID do cliente": g["id"], "Papel na ficha": PAPEIS.get(p["papel"], {}).get("titulo", p["papel"]),

@@ -193,6 +193,14 @@
         camposPersonalizados: campos
       });
       if (!r || r.success === false) { resultados.push(prep.fichas[i] + ': evento recusado ' + JSON.stringify(r).slice(0, 150)); continue; }
+      await esperar(2500);
+      var depois = listaDe(await api('Contato/listarOportunidades', { id: c.p, processo: CONFIG.processoFichas })).map(function (x) { return String(x.id); });
+      var novos = depois.filter(function (id) { return prep.fichas.indexOf(id) === -1; });
+      if (novos.length) {
+        var erro = new Error('o evento ' + CONFIG.eventoAtualizaLink + ' CRIOU um registro novo em Fichas (' + novos.join(', ') + ') em vez de atualizar o ' + prep.fichas[i] + '. Apague o registro novo e ajuste o gatilho do evento para atualizar o registro existente.');
+        erro.parar = true;
+        throw erro;
+      }
       var ok = false;
       for (var t = 0; t < 8 && !ok; t++) {
         await esperar(1500);
@@ -260,8 +268,9 @@
         }
       } catch (e) {
         pendentes.push(c.p);
-        console.warn('#' + feitos + ' cliente ' + c.p + ': erro ' + e.message);
         relatorio.push([c.p, '', '', '', '', 'erro: ' + e.message, '']);
+        if (e.parar) { console.error('PAREI: ' + e.message); break; }
+        console.warn('#' + feitos + ' cliente ' + c.p + ': erro ' + e.message);
       }
       await esperar(CONFIG.pausaMs);
     }

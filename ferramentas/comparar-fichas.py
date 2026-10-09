@@ -98,7 +98,22 @@ def campo(rotulo):
         return "razao"
     if r.startswith("cnpj"):
         return "cnpj"
+    if r.startswith("endereco"):
+        return "endereco"
+    if r.startswith("inscricao estadual"):
+        return "ie"
+    if r.startswith("inscricao municipal"):
+        return "im"
+    if r.startswith("faturamento"):
+        return "faturamento"
+    if r.startswith("regime"):
+        return "regime"
+    if r.startswith("cep"):
+        return "cep"
     return None
+
+
+CAMPOS_EMPRESA = ("razao", "cnpj", "endereco", "ie", "im", "faturamento", "regime", "cep")
 
 
 def pares(linha):
@@ -135,11 +150,9 @@ def ler_ficha(texto):
                 continue
             if sem_acento(rot).lower().startswith("contato principal"):
                 secao, atual = "projeto", None
-            if secao == "cliente" or c in ("razao", "cnpj"):
-                if c == "nome" or c == "razao":
+            if secao == "cliente" or c in CAMPOS_EMPRESA:
+                if c == "nome" or c in CAMPOS_EMPRESA:
                     cliente.setdefault(c, val)
-                elif c == "cnpj":
-                    cliente.setdefault("cnpj", val)
                 continue
             if c == "nome" or atual is None or c in atual:
                 atual = {"papel": secao}
@@ -320,7 +333,7 @@ def main():
             continue
         cli, pessoas = ler_ficha(a["texto"])
         gc, como = achar_cliente(cli, gestao, nome_arq)
-        lidas.append({"arquivo": nome_arq, "data": a.get("docModificado") or a.get("modificado", ""), "cliente_ficha": cli.get("nome") or cli.get("razao", ""),
+        lidas.append({"arquivo": nome_arq, "data": a.get("docModificado") or a.get("modificado", ""), "cliente_ficha": cli.get("nome") or cli.get("razao", ""), "empresa": cli,
                       "cnpj": cli.get("cnpj", ""), "gestao": gc, "como": como, "pessoas": pessoas, "problema": ""})
 
     por_cliente = {}
@@ -332,7 +345,7 @@ def main():
         lista.sort(key=lambda f: f["data"], reverse=True)
         usadas.add(id(lista[0]))
 
-    linhas_cli, linhas_pes, vincular = [], [], []
+    linhas_cli, linhas_pes, vincular, empresas = [], [], [], {}
     for f in lidas:
         g = f.get("gestao")
         usada = id(f) in usadas
@@ -349,6 +362,8 @@ def main():
                            "Encontrado por": f["como"] if g else "", "Uso": uso, "Pessoas lidas": len(f.get("pessoas") or [])})
         if not usada:
             continue
+        if f["como"].startswith("CNPJ"):
+            empresas[g["id"]] = dict(f["empresa"], arquivo=f["arquivo"], data=f["data"][:10])
         cli_v = {"cliente": g["id"], "nome": g["nome"], "registros": g["registros"], "arquivo": f["arquivo"], "como": f["como"], "pessoas": []}
         for p in f["pessoas"]:
             sit, nome_gestao = situacao(p, g)
@@ -372,6 +387,7 @@ def main():
     gravar("comparacao-clientes.csv", linhas_cli)
     gravar("comparacao-pessoas.csv", linhas_pes)
     (saida / "pessoas-para-vincular.json").write_text(json.dumps(vincular, ensure_ascii=False, indent=1), encoding="utf-8")
+    (saida / "empresas-das-fichas.json").write_text(json.dumps(empresas, ensure_ascii=False, indent=1), encoding="utf-8")
 
     from collections import Counter
     print("arquivos:", len(lidas), "| usados:", len(usadas), "| clientes da gestão com ficha:", len(por_cliente))

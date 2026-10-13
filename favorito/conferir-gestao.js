@@ -107,6 +107,20 @@
   }
 
   // ---------- leitura da tela do Rubeus ----------
+  // texto dentro de algo com posição fixa (menu do topo, avisos) nunca é linha da lista
+  var cacheFixo = new WeakMap();
+  function fixoEm(el) {
+    var e = el, trilha = [], achou = false;
+    while (e && e !== document.body && e !== document.documentElement) {
+      if (cacheFixo.has(e)) { achou = cacheFixo.get(e); break; }
+      trilha.push(e);
+      if (getComputedStyle(e).position === 'fixed') { achou = true; break; }
+      e = e.parentElement;
+    }
+    trilha.forEach(function (x) { cacheFixo.set(x, achou); });
+    return achou;
+  }
+
   function nosDeTexto() {
     var out = [];
     var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -116,6 +130,7 @@
       if (!t) continue;
       var el = n.parentElement;
       if (!el || /^(SCRIPT|STYLE|NOSCRIPT|OPTION)$/.test(el.tagName)) continue;
+      if (fixoEm(el)) continue;
       var rg = document.createRange();
       rg.selectNodeContents(n);
       var r = rg.getBoundingClientRect();
@@ -209,8 +224,8 @@
     var topoIni = rolagem.scrollTop, esqIni = rolagem.scrollLeft;
     var mapa = {}, qtd = 0, exigirId = false;
 
-    function varrer(abrangente) {
-      linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true).forEach(function (l) {
+    function varrer() {
+      linhasVisiveis(cab, rolagem, exigirId, false).forEach(function (l) {
         var k = l.id || norm(l.nome);
         if (!mapa[k]) qtd++;
         mapa[k] = l;
@@ -230,57 +245,53 @@
       }
     }
     var passoAltura = Math.min(alturaVis, window.innerHeight) * 0.6;
-    for (var passo = 0; passo < 600; passo++) {
-      avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : ''));
-      if (total && qtd >= total) break;
-      var antes = rolagem.scrollTop, alturaAntes = rolagem.scrollHeight;
-      rolagem.scrollTop = antes + passoAltura;
-      avisarRolagem();
-      await esperar(350);
-      varrer();
-      if (rolagem.scrollTop === antes) {
-        // chegou no fim: dá tempo para a página carregar mais contatos
-        var cresceu = false;
-        for (var t = 0; t < 12 && !cresceu; t++) {
-          clicarMais();
-          rolagem.scrollTop = rolagem.scrollHeight;
-          avisarRolagem();
-          await esperar(900);
-          varrer();
-          avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : ''));
-          if (rolagem.scrollHeight > alturaAntes || (total && qtd >= total)) cresceu = true;
+    var atualiza = function () { avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : '')); };
+
+    // desce a lista até o fim; no fim "balança" (sobe um pouco e desce) para a página carregar o que falta
+    async function descer() {
+      for (var passo = 0; passo < 600; passo++) {
+        atualiza();
+        if (total && qtd >= total) return;
+        var antes = rolagem.scrollTop;
+        rolagem.scrollTop = antes + passoAltura;
+        avisarRolagem();
+        await esperar(350);
+        varrer();
+        if (rolagem.scrollTop === antes) {
+          var alturaFim = rolagem.scrollHeight, cresceu = false;
+          for (var t = 0; t < 4 && !cresceu; t++) {
+            clicarMais();
+            rolagem.scrollTop = Math.max(0, rolagem.scrollHeight - alturaVis * 1.8);
+            avisarRolagem();
+            await esperar(400);
+            varrer();
+            rolagem.scrollTop = rolagem.scrollHeight;
+            avisarRolagem();
+            await esperar(900);
+            varrer();
+            atualiza();
+            if (rolagem.scrollHeight > alturaFim || (total && qtd >= total)) cresceu = true;
+          }
+          if (!cresceu) return;
         }
-        if (!cresceu) break;
       }
     }
-    // última tentativa: se faltou linha, rola TODAS as áreas roláveis da página até o fim e lê a tela inteira
-    if (total && qtd < total) {
-      avisar('Conferindo o fim da lista... ' + qtd + ' de ' + total);
-      var rolaveis = [document.scrollingElement || document.documentElement];
-      Array.prototype.forEach.call(document.querySelectorAll('*'), function (e) {
-        if (e === document.body || e === document.documentElement) return;
-        var cs = getComputedStyle(e);
-        if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 5) rolaveis.push(e);
-      });
-      var guardados = rolaveis.map(function (e) { return e.scrollTop; });
-      for (var rep = 0; rep < 3 && qtd < total; rep++) {
-        for (var q = 0; q < rolaveis.length; q++) {
-          rolaveis[q].scrollTop = rolaveis[q].scrollHeight;
-          try { rolaveis[q].dispatchEvent(new Event('scroll')); } catch (e) {}
-          await esperar(1200);
-          varrer(true);
-        }
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        await esperar(1200);
-        varrer(true);
-      }
-      rolaveis.forEach(function (e, q) { e.scrollTop = guardados[q]; });
+
+    var passadas = 1;
+    await descer();
+    // se faltou linha, volta ao topo e desce de novo (a página já carregou mais coisa)
+    while (total && qtd < total && passadas < 3) {
+      passadas++;
+      avisar('Lendo de novo para pegar o que faltou... ' + qtd + ' de ' + total);
+      rolagem.scrollTop = 0;
+      avisarRolagem();
+      await esperar(1000);
+      varrer();
+      await descer();
     }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
     var todas = Object.keys(mapa).map(function (k) { return mapa[k]; });
-    var ultima = todas.length ? todas[todas.length - 1] : null;
-    var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ')' +
-      (ultima ? ' · última linha lida: ' + ultima.nome.slice(0, 40) + ' [' + ultima.id + ']' : '');
+    var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ') · passadas: ' + passadas;
     return { linhas: todas, total: total, diag: diag };
   }
 

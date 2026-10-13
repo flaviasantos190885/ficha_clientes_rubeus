@@ -16,6 +16,7 @@ def main():
     url = "javascript:" + quote(js, safe="()*'!~")
     saida = RAIZ / "para-colar"
     saida.mkdir(exist_ok=True)
+    (RAIZ / "favorito" / "favorito.txt").write_text(url, encoding="utf-8")
     (saida / "favorito-conferir-gestao.txt").write_text(url, encoding="utf-8")
     html = (
         '<!doctype html><meta charset="utf-8"><title>Favorito</title>'

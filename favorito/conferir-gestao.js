@@ -158,7 +158,7 @@
     return document.scrollingElement || document.documentElement;
   }
 
-  function linhasVisiveis(cab, rolagem, exigirId) {
+  function linhasVisiveis(cab, rolagem, exigirId, abrangente) {
     var ehDoc = rolagem === document.scrollingElement || rolagem === document.documentElement;
     var topo = cab.bottom;
     if (cab.nome.el.isConnected) {
@@ -166,8 +166,15 @@
       if (rb.bottom > 0 && rb.bottom <= window.innerHeight) topo = rb.bottom; else topo = 0;
     } else topo = 0;
     var nos = nosDeTexto().filter(function (n) {
+      if (abrangente) return true;
       return n.cy > topo && (ehDoc || rolagem.contains(n.el));
     }).sort(function (a, b) { return a.cy - b.cy; });
+    if (cab.idLeft == null) {
+      var contagem = {};
+      nos.forEach(function (n) { if (/^\d{5,}$/.test(n.t)) { var k = Math.round(n.l / 4); contagem[k] = (contagem[k] || 0) + 1; } });
+      var ks = Object.keys(contagem).sort(function (a, b) { return contagem[b] - contagem[a]; });
+      if (ks.length) cab.idLeft = ks[0] * 4;
+    }
     var grupos = [], atual = null;
     nos.forEach(function (n) {
       if (!atual || n.cy - atual.fim > 10) { atual = { fim: n.cy, nos: [] }; grupos.push(atual); }
@@ -179,9 +186,11 @@
         .sort(function (a, b) { return a.l - b.l; }).map(function (n) { return n.t; }).join(' ').trim();
       var exec = g.nos.filter(function (n) { return n.l >= cab.resp.left - 2 && n.l < cab.resp.right; })
         .sort(function (a, b) { return a.l - b.l; }).map(function (n) { return n.t; }).join(' ').trim();
-      var idNo = g.nos.filter(function (n) { return /^\d{5,}$/.test(n.t); })[0];
+      var idNo = g.nos.filter(function (n) {
+        return /^\d+$/.test(n.t) && (cab.idLeft == null ? n.t.length >= 5 : Math.abs(n.l - cab.idLeft) < 14);
+      })[0];
       if (!nome || /^nome(\s|\W)?\S?$/i.test(nome)) return;
-      if (exigirId && !idNo) return;
+      if (exigirId && (ehDoc || abrangente) && !idNo) return;
       if (!norm(exec)) exec = '';
       out.push({ nome: nome, exec: exec, id: idNo ? idNo.t : '' });
     });
@@ -200,8 +209,8 @@
     var topoIni = rolagem.scrollTop, esqIni = rolagem.scrollLeft;
     var mapa = {}, qtd = 0, exigirId = false;
 
-    function varrer() {
-      linhasVisiveis(cab, rolagem, exigirId).forEach(function (l) {
+    function varrer(abrangente) {
+      linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true).forEach(function (l) {
         var k = l.id || norm(l.nome);
         if (!mapa[k]) qtd++;
         mapa[k] = l;
@@ -244,8 +253,35 @@
         if (!cresceu) break;
       }
     }
+    // última tentativa: se faltou linha, rola TODAS as áreas roláveis da página até o fim e lê a tela inteira
+    if (total && qtd < total) {
+      avisar('Conferindo o fim da lista... ' + qtd + ' de ' + total);
+      var rolaveis = [document.scrollingElement || document.documentElement];
+      Array.prototype.forEach.call(document.querySelectorAll('*'), function (e) {
+        if (e === document.body || e === document.documentElement) return;
+        var cs = getComputedStyle(e);
+        if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 5) rolaveis.push(e);
+      });
+      var guardados = rolaveis.map(function (e) { return e.scrollTop; });
+      for (var rep = 0; rep < 3 && qtd < total; rep++) {
+        for (var q = 0; q < rolaveis.length; q++) {
+          rolaveis[q].scrollTop = rolaveis[q].scrollHeight;
+          try { rolaveis[q].dispatchEvent(new Event('scroll')); } catch (e) {}
+          await esperar(1200);
+          varrer(true);
+        }
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        await esperar(1200);
+        varrer(true);
+      }
+      rolaveis.forEach(function (e, q) { e.scrollTop = guardados[q]; });
+    }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
-    return { linhas: Object.keys(mapa).map(function (k) { return mapa[k]; }), total: total };
+    var todas = Object.keys(mapa).map(function (k) { return mapa[k]; });
+    var ultima = todas.length ? todas[todas.length - 1] : null;
+    var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ')' +
+      (ultima ? ' · última linha lida: ' + ultima.nome.slice(0, 40) + ' [' + ultima.id + ']' : '');
+    return { linhas: todas, total: total, diag: diag };
   }
 
   function distancia(a, b) {
@@ -398,7 +434,7 @@
       'Gestão: ' + info.gestao + ' contatos lidos' + (info.totalTela ? ' (a tela diz ' + info.totalTela + ')' : '') + (info.ignorados ? ', ' + info.ignorados + ' de teste ignorados' : '') +
       ' · Planilha: ' + info.planilha + ' clientes (colunas "' + info.cabNome + '" e "' + info.cabExec + '")' }));
     if (info.totalTela && info.totalTela !== info.gestao) {
-      areaRes.appendChild(el('div', { class: 'msg erro', texto: 'Atenção: li ' + info.gestao + ' contatos mas a tela mostra ' + info.totalTela + '. Confira o resultado com cuidado.' }));
+      areaRes.appendChild(el('div', { class: 'msg erro', texto: 'Atenção: li ' + info.gestao + ' contatos mas a tela mostra ' + info.totalTela + '. Confira o resultado com cuidado. [' + info.diag + ']' }));
     }
     if (tudoCerto) areaRes.appendChild(el('div', { class: 'msg', texto: 'Tudo certo! A gestão está igual à planilha de distribuição.' }));
     areaRes.appendChild(secao('⚠ Divergência de executivo', 'A planilha é a que vale: troque na gestão para o "Deveria ser".',
@@ -472,7 +508,7 @@
       g.linhas = g.linhas.filter(function (x) { return IGNORAR_NA_GESTAO.indexOf(norm(x.nome)) === -1; });
       msg('');
       mostrar(comparar(g.linhas, pl.itens), {
-        gestao: lidos, ignorados: lidos - g.linhas.length, totalTela: g.total, planilha: pl.itens.length,
+        diag: g.diag, gestao: lidos, ignorados: lidos - g.linhas.length, totalTela: g.total, planilha: pl.itens.length,
         cabNome: pl.cabecalhoNome, cabExec: pl.cabecalhoExec
       });
     } catch (e) {

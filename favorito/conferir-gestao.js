@@ -213,16 +213,35 @@
     if (Object.keys(mapa).some(function (k) { return mapa[k].id; })) {
       exigirId = true; mapa = {}; qtd = 0; varrer();
     }
-    for (var passo = 0; passo < 400; passo++) {
+    function avisarRolagem() { try { rolagem.dispatchEvent(new Event('scroll')); if (ehDoc) window.dispatchEvent(new Event('scroll')); } catch (e) {} }
+    function clicarMais() {
+      var bs = document.querySelectorAll('button, a, [role=button]');
+      for (var i = 0; i < bs.length; i++) {
+        if (/^(carregar|ver|mostrar|exibir)\s+mais/i.test((bs[i].textContent || '').trim())) { bs[i].click(); return; }
+      }
+    }
+    var passoAltura = Math.min(alturaVis, window.innerHeight) * 0.6;
+    for (var passo = 0; passo < 600; passo++) {
       avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : ''));
       if (total && qtd >= total) break;
       var antes = rolagem.scrollTop, alturaAntes = rolagem.scrollHeight;
-      rolagem.scrollTop = antes + alturaVis * 0.8;
+      rolagem.scrollTop = antes + passoAltura;
+      avisarRolagem();
       await esperar(350);
       varrer();
       if (rolagem.scrollTop === antes) {
-        await esperar(900); varrer();
-        if (rolagem.scrollHeight === alturaAntes) break;
+        // chegou no fim: dá tempo para a página carregar mais contatos
+        var cresceu = false;
+        for (var t = 0; t < 12 && !cresceu; t++) {
+          clicarMais();
+          rolagem.scrollTop = rolagem.scrollHeight;
+          avisarRolagem();
+          await esperar(900);
+          varrer();
+          avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : ''));
+          if (rolagem.scrollHeight > alturaAntes || (total && qtd >= total)) cresceu = true;
+        }
+        if (!cresceu) break;
       }
     }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
@@ -367,13 +386,13 @@
 
   function mostrar(res, info) {
     areaRes.innerHTML = '';
-    var tudoCerto = !res.divergentes.length && !res.faltando.length && !res.soGestao.length;
+    var tudoCerto = !res.divergentes.length && !res.faltando.length && !res.soGestao.length && !res.aproximados.some(function (x) { return norm(x.g.exec) !== norm(x.p.exec); });
     areaRes.appendChild(el('div', { class: 'badges' }, [
       el('span', { class: 'b ok', texto: '✔ Certos: ' + res.certos.length }),
       el('span', { class: 'b dv', texto: '⚠ Divergentes: ' + res.divergentes.length }),
       el('span', { class: 'b fa', texto: '✖ Faltando na gestão: ' + res.faltando.length }),
       el('span', { class: 'b sg', texto: '? Só na gestão: ' + res.soGestao.length }),
-      el('span', { class: 'b ap', texto: '≈ Nome aproximado: ' + res.aproximados.length })
+      el('span', { class: 'b ap', texto: '≈ Nome parecido: ' + res.aproximados.length })
     ]));
     areaRes.appendChild(el('div', { class: 'peq', texto:
       'Gestão: ' + info.gestao + ' contatos lidos' + (info.totalTela ? ' (a tela diz ' + info.totalTela + ')' : '') + (info.ignorados ? ', ' + info.ignorados + ' de teste ignorados' : '') +
@@ -381,19 +400,25 @@
     if (info.totalTela && info.totalTela !== info.gestao) {
       areaRes.appendChild(el('div', { class: 'msg erro', texto: 'Atenção: li ' + info.gestao + ' contatos mas a tela mostra ' + info.totalTela + '. Confira o resultado com cuidado.' }));
     }
-    if (tudoCerto) areaRes.appendChild(el('div', { class: 'msg', texto: res.aproximados.length ? 'Tudo certo, exceto os nomes aproximados abaixo para você confirmar.' : 'Tudo certo! A gestão está igual à planilha de distribuição.' }));
+    if (tudoCerto) areaRes.appendChild(el('div', { class: 'msg', texto: 'Tudo certo! A gestão está igual à planilha de distribuição.' }));
     areaRes.appendChild(secao('⚠ Divergência de executivo', 'A planilha é a que vale: troque na gestão para o "Deveria ser".',
       ['Cliente (gestão)', 'Está na gestão', 'Deveria ser (planilha)'],
       res.divergentes.map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.exec || '(vazio)']; }), true));
-    areaRes.appendChild(secao('✖ Está na planilha e não está na gestão', 'Cliente da planilha que não apareceu na lista de contatos.',
+    var incompleta = info.totalTela && info.totalTela !== info.gestao;
+    areaRes.appendChild(secao('✖ Está na planilha e não está na gestão', incompleta ? 'ATENÇÃO: a leitura da gestão veio incompleta, então alguns daqui podem existir na gestão. Rode de novo.' : 'Cliente da planilha que não apareceu na lista de contatos.',
       ['Cliente (planilha)', 'Executivo (planilha)'],
       res.faltando.map(function (p) { return [p.nome, p.exec]; }), true));
     areaRes.appendChild(secao('? Está na gestão e não está na planilha', 'Cliente com executivo na gestão que a planilha não tem.',
       ['Cliente (gestão)', 'Executivo (gestão)'],
       res.soGestao.map(function (g) { return [g.nome, g.exec || '(vazio)']; }), true));
-    areaRes.appendChild(secao('≈ Nome aproximado (confirme se é o mesmo cliente)', 'O nome não é igual (abreviação, parte do nome ou erro de digitação). Veja se é o mesmo cliente.',
-      ['Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)', 'Executivo'],
-      res.aproximados.map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.nome, x.p.exec || '(vazio)', norm(x.g.exec) === norm(x.p.exec) ? '✔ confere' : '⚠ DIFERENTE']; }), true));
+    var apDif = res.aproximados.filter(function (x) { return norm(x.g.exec) !== norm(x.p.exec); });
+    var apOk = res.aproximados.filter(function (x) { return norm(x.g.exec) === norm(x.p.exec); });
+    var colsAp = ['Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)'];
+    function linhaAp(x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.nome, x.p.exec || '(vazio)']; }
+    areaRes.appendChild(secao('⚠ Nome parecido e executivo DIFERENTE (confirme se é o mesmo cliente)', 'O nome não é igual (abreviação, parte do nome ou erro de digitação) e o executivo é diferente.',
+      colsAp, apDif.map(linhaAp), true));
+    areaRes.appendChild(secao('≈ Nome parecido e executivo igual', 'Nomes escritos de forma diferente, mas o executivo confere. Só para você olhar se quiser.',
+      colsAp, apOk.map(linhaAp), false));
     areaRes.appendChild(secao('✔ Certos', '', ['Cliente (gestão)', 'Executivo'],
       res.certos.map(function (x) { return [x.g.nome, x.g.exec]; }), false));
 

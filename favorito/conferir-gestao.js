@@ -4,6 +4,8 @@
   // com a planilha de distribuição (a planilha manda). Não usa API nem token: só lê a tela.
   var CHAVE_LINK = 'fc-conferir-gestao-link';
   var ID_PAINEL = 'fc-conferir-gestao';
+  // cadastros de teste da gestão: não entram na conferência
+  var IGNORAR_NA_GESTAO = ['rubeus para rubeus', 'contato modelo projetos'];
 
   var antigo = document.getElementById(ID_PAINEL);
   if (antigo) antigo.remove();
@@ -180,6 +182,7 @@
       var idNo = g.nos.filter(function (n) { return /^\d{5,}$/.test(n.t); })[0];
       if (!nome || /^nome(\s|\W)?\S?$/i.test(nome)) return;
       if (exigirId && !idNo) return;
+      if (!norm(exec)) exec = '';
       out.push({ nome: nome, exec: exec, id: idNo ? idNo.t : '' });
     });
     return out;
@@ -226,6 +229,45 @@
     return { linhas: Object.keys(mapa).map(function (k) { return mapa[k]; }), total: total };
   }
 
+  function distancia(a, b) {
+    var d = [], i, j;
+    for (i = 0; i <= a.length; i++) d[i] = [i];
+    for (j = 1; j <= b.length; j++) d[0][j] = j;
+    for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    return d[a.length][b.length];
+  }
+
+  // nota de semelhança entre dois nomes já normalizados (0 = nada a ver):
+  // 3 = um nome inteiro está dentro do outro (AFYA em "AFYA EDUCACIONAL")
+  // 2 = abreviação (SENAI AL em "SENAI ALAGOAS")
+  // 1 = erro de digitação (Tecnoparque / Tecnopark)
+  function similar(a, b) {
+    var ta = a.split(' '), tb = b.split(' ');
+    var ehA = ta.length !== tb.length ? ta.length < tb.length : a.length <= b.length;
+    var curto = ehA ? ta : tb, longo = ehA ? tb : ta;
+    if (a === b || curto.join('').length < 3) return 0;
+    var melhor = 0;
+    for (var i = 0; i + curto.length <= longo.length; i++) {
+      var inteiro = true, abrev = true, junto = '';
+      for (var j = 0; j < curto.length; j++) {
+        var x = curto[j], y = longo[i + j];
+        if (x !== y) inteiro = false;
+        var ultimo = j === curto.length - 1;
+        if (!(x === y || (ultimo && curto.length > 1 && x.length >= 2 && y.indexOf(x) === 0))) abrev = false;
+        junto += y;
+      }
+      if (inteiro) melhor = Math.max(melhor, 3);
+      else if (abrev) melhor = Math.max(melhor, 2);
+      else {
+        var c = curto.join('');
+        if (c.length >= 8 && 1 - distancia(c, junto) / Math.max(c.length, junto.length) >= 0.7) melhor = Math.max(melhor, 1);
+      }
+    }
+    return melhor;
+  }
+
   // ---------- comparação (a planilha manda) ----------
   function comparar(gestao, planilha) {
     var porChave = {};
@@ -243,17 +285,14 @@
       p.achados.push(g);
       (norm(p.exec) === norm(g.exec) ? certos : divergentes).push({ g: g, p: p });
     });
-    // casamento aproximado: um nome inteiro contido no outro (só entre os que sobraram)
+    // casamento aproximado entre os que sobraram (a gestão e a planilha escrevem o nome de formas diferentes)
     restantes.forEach(function (r) {
-      var melhor = null, tam = 0;
+      var melhor = null, nota = 0;
       planilha.forEach(function (p) {
         r.ks.forEach(function (a) {
           p.chaves.forEach(function (b) {
-            if (a.indexOf(' ') === -1 && b.indexOf(' ') === -1 && a !== b && (a.indexOf(b) === -1 && b.indexOf(a) === -1)) return;
-            var curto = a.length < b.length ? a : b, longo = a.length < b.length ? b : a;
-            if (curto.length < 5) return;
-            if ((' ' + longo + ' ').indexOf(' ' + curto + ' ') === -1) return;
-            if (curto.length > tam) { tam = curto.length; melhor = p; }
+            var n = similar(a, b);
+            if (n > nota) { nota = n; melhor = p; }
           });
         });
       });
@@ -337,7 +376,7 @@
       el('span', { class: 'b ap', texto: '≈ Nome aproximado: ' + res.aproximados.length })
     ]));
     areaRes.appendChild(el('div', { class: 'peq', texto:
-      'Gestão: ' + info.gestao + ' contatos lidos' + (info.totalTela ? ' (a tela diz ' + info.totalTela + ')' : '') +
+      'Gestão: ' + info.gestao + ' contatos lidos' + (info.totalTela ? ' (a tela diz ' + info.totalTela + ')' : '') + (info.ignorados ? ', ' + info.ignorados + ' de teste ignorados' : '') +
       ' · Planilha: ' + info.planilha + ' clientes (colunas "' + info.cabNome + '" e "' + info.cabExec + '")' }));
     if (info.totalTela && info.totalTela !== info.gestao) {
       areaRes.appendChild(el('div', { class: 'msg erro', texto: 'Atenção: li ' + info.gestao + ' contatos mas a tela mostra ' + info.totalTela + '. Confira o resultado com cuidado.' }));
@@ -352,9 +391,9 @@
     areaRes.appendChild(secao('? Está na gestão e não está na planilha', 'Cliente com executivo na gestão que a planilha não tem.',
       ['Cliente (gestão)', 'Executivo (gestão)'],
       res.soGestao.map(function (g) { return [g.nome, g.exec || '(vazio)']; }), true));
-    areaRes.appendChild(secao('≈ Nome aproximado (confirme se é o mesmo cliente)', 'O nome não é igual, mas um contém o outro.',
-      ['Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)'],
-      res.aproximados.map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.nome, x.p.exec || '(vazio)']; }), true));
+    areaRes.appendChild(secao('≈ Nome aproximado (confirme se é o mesmo cliente)', 'O nome não é igual (abreviação, parte do nome ou erro de digitação). Veja se é o mesmo cliente.',
+      ['Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)', 'Executivo'],
+      res.aproximados.map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.nome, x.p.exec || '(vazio)', norm(x.g.exec) === norm(x.p.exec) ? '✔ confere' : '⚠ DIFERENTE']; }), true));
     areaRes.appendChild(secao('✔ Certos', '', ['Cliente (gestão)', 'Executivo'],
       res.certos.map(function (x) { return [x.g.nome, x.g.exec]; }), false));
 
@@ -404,9 +443,11 @@
       var pl = lerPlanilha(lerCSV(csvTexto));
       if (!pl.itens.length) throw new Error('A planilha não tem linhas com cliente.');
       var g = await lerGestao(msg);
+      var lidos = g.linhas.length;
+      g.linhas = g.linhas.filter(function (x) { return IGNORAR_NA_GESTAO.indexOf(norm(x.nome)) === -1; });
       msg('');
       mostrar(comparar(g.linhas, pl.itens), {
-        gestao: g.linhas.length, totalTela: g.total, planilha: pl.itens.length,
+        gestao: lidos, ignorados: lidos - g.linhas.length, totalTela: g.total, planilha: pl.itens.length,
         cabNome: pl.cabecalhoNome, cabExec: pl.cabecalhoExec
       });
     } catch (e) {

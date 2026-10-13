@@ -107,3 +107,24 @@ Um cliente por pessoa (linhas repetidas são unidas). O link abre a ficha no for
 (`?ficha=`), com os dados da empresa e os nomes dos contatos relacionados.
 
     python3 -I ferramentas/gerar-fichas-importacao.py exportacao.csv modelo.csv saida
+
+## Favorito: conferir gestão x planilha de distribuição
+
+`favorito/conferir-gestao.js` é um favorito (bookmarklet) para usar na tela **Contatos** do Rubeus
+(visão com as colunas Nome e RpR - Responsável comercial). Ele lê a lista inteira (rola sozinho até
+carregar todos), compara com a planilha de distribuição (que é a que vale) e mostra:
+- **Divergentes:** cliente nos dois, com executivo diferente (mostra o que deveria ser);
+- **Faltando na gestão:** está na planilha e não está nos contatos;
+- **Só na gestão:** está nos contatos e não está na planilha (cliente + executivo);
+- **Nome aproximado:** nome não idêntico (um contém o outro) para você confirmar;
+- **Certos.**
+
+O campo do link da planilha guarda o último link colado (a aba vem do `gid=` do link). Se o Google
+bloquear a leitura (planilha privada), baixe a aba em CSV e escolha o arquivo no próprio painel.
+O nome do cliente é comparado sem acento/maiúscula e também por cada pedaço separado por "/".
+As colunas da planilha são achadas pelo cabeçalho ("Executivo"), então podem mudar de lugar.
+
+    python3 -I ferramentas/gerar-favorito.py
+
+Gera em `para-colar/` (fora do git) o endereço do favorito (`.txt`) e uma página `.html` com o botão
+para arrastar até a barra de favoritos. Também funciona colando `favorito/conferir-gestao.js` no Console (F12).

@@ -209,8 +209,11 @@
     var topoIni = rolagem.scrollTop, esqIni = rolagem.scrollLeft;
     var mapa = {}, qtd = 0, exigirId = false;
 
+    var naTela = [];
     function varrer(abrangente) {
-      linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true).forEach(function (l) {
+      var vistas = linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true);
+      if (vistas.length) naTela = vistas;
+      vistas.forEach(function (l) {
         var k = l.id || norm(l.nome);
         if (!mapa[k]) qtd++;
         mapa[k] = l;
@@ -253,34 +256,34 @@
         if (!cresceu) break;
       }
     }
-    // última tentativa: se faltou linha, rola TODAS as áreas roláveis da página até o fim e lê a tela inteira
+    // sabemos quantos contatos são: se faltou, espera a Rubeus terminar de carregar (até 60 s) cutucando o fim da lista
+    var esperouS = 0;
     if (total && qtd < total) {
-      avisar('Conferindo o fim da lista... ' + qtd + ' de ' + total);
-      var rolaveis = [document.scrollingElement || document.documentElement];
+      var rolaveis = [rolagem, document.scrollingElement || document.documentElement];
       Array.prototype.forEach.call(document.querySelectorAll('*'), function (e) {
-        if (e === document.body || e === document.documentElement) return;
+        if (e === document.body || e === document.documentElement || rolaveis.indexOf(e) !== -1) return;
         var cs = getComputedStyle(e);
         if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 5) rolaveis.push(e);
       });
       var guardados = rolaveis.map(function (e) { return e.scrollTop; });
-      for (var rep = 0; rep < 3 && qtd < total; rep++) {
+      while (qtd < total && esperouS < 60) {
+        avisar('Esperando a Rubeus carregar o resto da lista... ' + qtd + ' de ' + total + ' (' + esperouS + 's)');
+        clicarMais();
         for (var q = 0; q < rolaveis.length; q++) {
           rolaveis[q].scrollTop = rolaveis[q].scrollHeight;
           try { rolaveis[q].dispatchEvent(new Event('scroll')); } catch (e) {}
-          await esperar(1200);
-          varrer(true);
         }
-        window.scrollTo(0, document.documentElement.scrollHeight);
-        await esperar(1200);
-        varrer(true);
+        await esperar(1000);
+        esperouS++;
+        varrer(); varrer(true);
       }
       rolaveis.forEach(function (e, q) { e.scrollTop = guardados[q]; });
     }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
     var todas = Object.keys(mapa).map(function (k) { return mapa[k]; });
-    var ultima = todas.length ? todas[todas.length - 1] : null;
+    var ultimaTela = naTela.length ? naTela[naTela.length - 1] : null;
     var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ')' +
-      (ultima ? ' · última linha lida: ' + ultima.nome.slice(0, 40) + ' [' + ultima.id + ']' : '');
+      ' · esperei ' + esperouS + 's · última linha vista na tela: ' + (ultimaTela ? ultimaTela.nome.slice(0, 40) + ' [' + ultimaTela.id + ']' : '-');
     return { linhas: todas, total: total, diag: diag };
   }
 
@@ -366,7 +369,7 @@
   sombra.innerHTML =
     '<style>' +
     ':host{all:initial}*{box-sizing:border-box;font-family:"Segoe UI",Arial,Helvetica,sans-serif}' +
-    '.caixa{width:1000px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;background:#12161c;color:#e6eaf0;border:1px solid #2d3643;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:16px;font-size:14px}' +
+    '.caixa{width:820px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;background:#12161c;color:#e6eaf0;border:1px solid #2d3643;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:16px;font-size:14px}' +
     '.topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}' +
     '.topo b{font-size:17px;color:#fff}' +
     'button{cursor:pointer;border:1px solid #1fb59f;background:#1fb59f;color:#06201b;font-weight:bold;border-radius:6px;padding:8px 14px;font-size:14px}' +

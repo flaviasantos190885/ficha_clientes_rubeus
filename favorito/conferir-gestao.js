@@ -237,7 +237,6 @@
     if (Object.keys(mapa).some(function (k) { return mapa[k].id; })) {
       exigirId = true; mapa = {}; qtd = 0; varrer();
     }
-    function avisarRolagem() { try { rolagem.dispatchEvent(new Event('scroll')); if (ehDoc) window.dispatchEvent(new Event('scroll')); } catch (e) {} }
     function clicarMais() {
       var bs = document.querySelectorAll('button, a, [role=button]');
       for (var i = 0; i < bs.length; i++) {
@@ -247,48 +246,52 @@
     var passoAltura = Math.min(alturaVis, window.innerHeight) * 0.6;
     var atualiza = function () { avisar('Lendo a lista do Rubeus... ' + qtd + (total ? ' de ' + total : '')); };
 
-    // desce a lista até o fim; no fim "balança" (sobe um pouco e desce) para a página carregar o que falta
+    // No fim da lista FICA QUIETO (sem mexer na rolagem): a Rubeus carrega o resto quando a rolagem para.
+    // Devolve true se apareceu linha nova.
+    async function esperarCarregar(segundos) {
+      var alturaFim = rolagem.scrollHeight, antesQtd = qtd;
+      clicarMais();
+      for (var i = 0; i < segundos * 2; i++) {
+        await esperar(500);
+        varrer();
+        atualiza();
+        if ((total && qtd >= total) || rolagem.scrollHeight > alturaFim || qtd > antesQtd) return true;
+      }
+      return false;
+    }
+
     async function descer() {
       for (var passo = 0; passo < 600; passo++) {
         atualiza();
         if (total && qtd >= total) return;
         var antes = rolagem.scrollTop;
         rolagem.scrollTop = antes + passoAltura;
-        avisarRolagem();
         await esperar(350);
         varrer();
         if (rolagem.scrollTop === antes) {
-          var alturaFim = rolagem.scrollHeight, cresceu = false;
-          for (var t = 0; t < 4 && !cresceu; t++) {
-            clicarMais();
-            rolagem.scrollTop = Math.max(0, rolagem.scrollHeight - alturaVis * 1.8);
-            avisarRolagem();
-            await esperar(400);
-            varrer();
-            rolagem.scrollTop = rolagem.scrollHeight;
-            avisarRolagem();
-            await esperar(900);
-            varrer();
-            atualiza();
-            if (rolagem.scrollHeight > alturaFim || (total && qtd >= total)) cresceu = true;
-          }
-          if (!cresceu) return;
+          if (!(await esperarCarregar(12))) return;
         }
+      }
+    }
+
+    // de baixo para cima: vai ao fim, espera quieto e volta lendo até o topo
+    async function subir() {
+      rolagem.scrollTop = rolagem.scrollHeight;
+      await esperar(600);
+      varrer();
+      await esperarCarregar(12);
+      for (var passo = 0; passo < 600 && rolagem.scrollTop > 0; passo++) {
+        atualiza();
+        rolagem.scrollTop = Math.max(0, rolagem.scrollTop - passoAltura);
+        await esperar(350);
+        varrer();
       }
     }
 
     var passadas = 1;
     await descer();
-    // se faltou linha, volta ao topo e desce de novo (a página já carregou mais coisa)
-    while (total && qtd < total && passadas < 3) {
-      passadas++;
-      avisar('Lendo de novo para pegar o que faltou... ' + qtd + ' de ' + total);
-      rolagem.scrollTop = 0;
-      avisarRolagem();
-      await esperar(1000);
-      varrer();
-      await descer();
-    }
+    if (total && qtd < total) { passadas++; avisar('Lendo de baixo para cima... ' + qtd + ' de ' + total); await subir(); }
+    if (total && qtd < total) { passadas++; await descer(); }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
     var todas = Object.keys(mapa).map(function (k) { return mapa[k]; });
     var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ') · passadas: ' + passadas;

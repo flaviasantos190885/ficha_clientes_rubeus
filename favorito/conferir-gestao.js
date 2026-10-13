@@ -365,20 +365,31 @@
   var sombra = host.attachShadow({ mode: 'open' });
   sombra.innerHTML =
     '<style>' +
-    ':host{all:initial}*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}' +
-    '.caixa{width:620px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;background:#fff;color:#222;border:1px solid #bbb;border-radius:8px;box-shadow:0 6px 28px rgba(0,0,0,.35);padding:14px;font-size:13px}' +
-    '.topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}' +
-    '.topo b{font-size:15px}' +
-    'button{cursor:pointer;border:1px solid #0e8f7e;background:#0e8f7e;color:#fff;border-radius:5px;padding:7px 12px;font-size:13px}' +
-    'button.sec{background:#fff;color:#0e8f7e}button.x{background:none;border:0;color:#666;font-size:18px;padding:0 4px}' +
-    'input[type=text]{width:100%;padding:7px;border:1px solid #bbb;border-radius:5px;font-size:13px;margin:4px 0 8px}' +
-    'label{font-weight:bold;font-size:12px}.linha{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}' +
-    '.msg{margin:8px 0;padding:8px;border-radius:5px;background:#f2f2f2}.erro{background:#fde8e8;color:#8a1c1c}' +
-    '.badges{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.b{padding:5px 9px;border-radius:12px;font-weight:bold;font-size:12px}' +
-    '.ok{background:#e2f5e9;color:#17653a}.dv{background:#fff1d6;color:#8a5a00}.fa{background:#fde8e8;color:#8a1c1c}.sg{background:#e6edff;color:#24408e}.ap{background:#eee;color:#444}' +
-    'h4{margin:14px 0 4px;font-size:13px}table{width:100%;border-collapse:collapse;font-size:12px}' +
-    'th,td{border-bottom:1px solid #e4e4e4;text-align:left;padding:4px 6px;vertical-align:top}th{background:#f6f6f6}' +
-    '.peq{color:#666;font-size:11px}details{margin-top:6px}' +
+    ':host{all:initial}*{box-sizing:border-box;font-family:"Segoe UI",Arial,Helvetica,sans-serif}' +
+    '.caixa{width:1000px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;background:#12161c;color:#e6eaf0;border:1px solid #2d3643;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:16px;font-size:14px}' +
+    '.topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}' +
+    '.topo b{font-size:17px;color:#fff}' +
+    'button{cursor:pointer;border:1px solid #1fb59f;background:#1fb59f;color:#06201b;font-weight:bold;border-radius:6px;padding:8px 14px;font-size:14px}' +
+    'button.sec{background:transparent;color:#1fb59f}button.x{background:none;border:0;color:#9aa6b6;font-size:20px;padding:0 6px}' +
+    'input[type=text]{width:100%;padding:9px;border:1px solid #3a4658;background:#0b0e12;color:#e6eaf0;border-radius:6px;font-size:14px;margin:4px 0 10px}' +
+    'input[type=file]{color:#c8d0dc}a{color:#6cc4ff}' +
+    'label{font-weight:bold;font-size:12px;color:#9aa6b6}.linha{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}' +
+    '.msg{margin:10px 0;padding:10px 12px;border-radius:6px;background:#1c232d;border:1px solid #2d3643}.erro{background:#3a1a1d;border-color:#7a2c33;color:#ffb3b8}' +
+    '.badges{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.b{padding:6px 12px;border-radius:14px;font-weight:bold;font-size:13px;border:1px solid transparent}' +
+    '.ok{background:#12301f;color:#6fe39a;border-color:#1f6b3f}.dv{background:#3b2c0c;color:#ffcf66;border-color:#7d5d12}.fa{background:#3a1a1d;color:#ff8f98;border-color:#7a2c33}.sg{background:#16264a;color:#8fb4ff;border-color:#2f4f96}.ap{background:#2a2f38;color:#c8d0dc;border-color:#454f5e}' +
+    '.peq{color:#9aa6b6;font-size:12px;margin:2px 0 6px}' +
+    'details.sec{margin-top:12px;border:1px solid #2d3643;border-left:5px solid #454f5e;border-radius:6px;background:#161b22}' +
+    'details.sec.t-dv{border-left-color:#ffcf66}details.sec.t-fa{border-left-color:#ff8f98}details.sec.t-sg{border-left-color:#8fb4ff}details.sec.t-ok{border-left-color:#6fe39a}details.sec.t-ap{border-left-color:#c8d0dc}' +
+    'summary{cursor:pointer;padding:10px 12px;font-weight:bold;font-size:14px;color:#fff;background:#1c232d;border-radius:6px}' +
+    '.cont{padding:4px 12px 12px}' +
+    '.rolagem{max-height:420px;overflow:auto;border:1px solid #2d3643;border-radius:4px}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px}' +
+    'th{position:sticky;top:0;background:#2a3340;color:#fff;text-align:left;padding:7px 10px;border:1px solid #3a4658;z-index:1}' +
+    'td{padding:6px 10px;border:1px solid #2d3643;vertical-align:top}' +
+    'tbody tr:nth-child(odd) td{background:#1a2029}tbody tr:nth-child(even) td{background:#222a35}' +
+    'tbody tr:hover td{background:#33415a}' +
+    'td.n{width:40px;text-align:right;color:#7f8b9b}' +
+    'td.bad{color:#ffb0b6;font-weight:bold}td.good{color:#7ff0a8;font-weight:bold}td.vazio{color:#ff8f98;font-style:italic}' +
     '</style><div class="caixa"></div>';
   var caixa = sombra.querySelector('.caixa');
 
@@ -404,21 +415,33 @@
     if (texto) areaMsg.appendChild(el('div', { class: 'msg' + (erro ? ' erro' : ''), texto: texto }));
   }
 
-  function tabela(cols, linhas) {
+  // classes: lista com a classe de cada coluna (ex.: 'bad' = vermelho, 'good' = verde)
+  function tabela(cols, linhas, classes) {
     var t = el('table');
-    t.appendChild(el('thead', {}, [el('tr', {}, cols.map(function (c) { return el('th', { texto: c }); }))]));
+    t.appendChild(el('thead', {}, [el('tr', {}, [el('th', { texto: '#' })].concat(cols.map(function (c) { return el('th', { texto: c }); })))]));
     var tb = el('tbody');
-    linhas.forEach(function (l) { tb.appendChild(el('tr', {}, l.map(function (c) { return el('td', { texto: c }); }))); });
+    linhas.forEach(function (l, i) {
+      var tds = [el('td', { class: 'n', texto: String(i + 1) })];
+      l.forEach(function (c, j) {
+        var cl = (classes && classes[j]) || '';
+        if (c === '(vazio)') cl = 'vazio';
+        tds.push(el('td', cl ? { class: cl, texto: c } : { texto: c }));
+      });
+      tb.appendChild(el('tr', {}, tds));
+    });
     t.appendChild(tb);
     return t;
   }
-  function secao(titulo, dica, cols, linhas, aberta) {
+  function secao(titulo, dica, cols, linhas, aberta, tipo, classes) {
     if (!linhas.length) return el('div');
-    var d = el('details', aberta ? { open: '' } : {}, [el('summary', { texto: titulo + ' (' + linhas.length + ')' })]);
-    if (dica) d.appendChild(el('div', { class: 'peq', texto: dica }));
-    d.appendChild(tabela(cols, linhas));
+    var d = el('details', Object.assign({ class: 'sec t-' + (tipo || 'ap') }, aberta ? { open: '' } : {}), [el('summary', { texto: titulo + ' (' + linhas.length + ')' })]);
+    var corpo = el('div', { class: 'cont' });
+    if (dica) corpo.appendChild(el('div', { class: 'peq', texto: dica }));
+    corpo.appendChild(el('div', { class: 'rolagem' }, [tabela(cols, linhas, classes)]));
+    d.appendChild(corpo);
     return d;
   }
+  function porNome(f) { return function (a, b) { return norm(f(a)).localeCompare(norm(f(b))); }; }
 
   function mostrar(res, info) {
     areaRes.innerHTML = '';
@@ -439,24 +462,24 @@
     if (tudoCerto) areaRes.appendChild(el('div', { class: 'msg', texto: 'Tudo certo! A gestão está igual à planilha de distribuição.' }));
     areaRes.appendChild(secao('⚠ Divergência de executivo', 'A planilha é a que vale: troque na gestão para o "Deveria ser".',
       ['Cliente (gestão)', 'Está na gestão', 'Deveria ser (planilha)'],
-      res.divergentes.map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.exec || '(vazio)']; }), true));
+      res.divergentes.slice().sort(porNome(function (x) { return x.g.nome; })).map(function (x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.exec || '(vazio)']; }), true, 'dv', ['', 'bad', 'good']));
     var incompleta = info.totalTela && info.totalTela !== info.gestao;
     areaRes.appendChild(secao('✖ Está na planilha e não está na gestão', incompleta ? 'ATENÇÃO: a leitura da gestão veio incompleta, então alguns daqui podem existir na gestão. Rode de novo.' : 'Cliente da planilha que não apareceu na lista de contatos.',
       ['Cliente (planilha)', 'Executivo (planilha)'],
-      res.faltando.map(function (p) { return [p.nome, p.exec]; }), true));
+      res.faltando.slice().sort(porNome(function (p) { return p.nome; })).map(function (p) { return [p.nome, p.exec]; }), true, 'fa', ['', 'good']));
     areaRes.appendChild(secao('? Está na gestão e não está na planilha', 'Cliente com executivo na gestão que a planilha não tem.',
       ['Cliente (gestão)', 'Executivo (gestão)'],
-      res.soGestao.map(function (g) { return [g.nome, g.exec || '(vazio)']; }), true));
+      res.soGestao.slice().sort(porNome(function (g) { return g.nome; })).map(function (g) { return [g.nome, g.exec || '(vazio)']; }), true, 'sg'));
     var apDif = res.aproximados.filter(function (x) { return norm(x.g.exec) !== norm(x.p.exec); });
     var apOk = res.aproximados.filter(function (x) { return norm(x.g.exec) === norm(x.p.exec); });
     var colsAp = ['Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)'];
     function linhaAp(x) { return [x.g.nome, x.g.exec || '(vazio)', x.p.nome, x.p.exec || '(vazio)']; }
     areaRes.appendChild(secao('⚠ Nome parecido e executivo DIFERENTE (confirme se é o mesmo cliente)', 'O nome não é igual (abreviação, parte do nome ou erro de digitação) e o executivo é diferente.',
-      colsAp, apDif.map(linhaAp), true));
+      colsAp, apDif.slice().sort(porNome(function (x) { return x.g.nome; })).map(linhaAp), true, 'dv', ['', 'bad', '', 'good']));
     areaRes.appendChild(secao('≈ Nome parecido e executivo igual', 'Nomes escritos de forma diferente, mas o executivo confere. Só para você olhar se quiser.',
-      colsAp, apOk.map(linhaAp), false));
+      colsAp, apOk.slice().sort(porNome(function (x) { return x.g.nome; })).map(linhaAp), false, 'ap'));
     areaRes.appendChild(secao('✔ Certos', '', ['Cliente (gestão)', 'Executivo'],
-      res.certos.map(function (x) { return [x.g.nome, x.g.exec]; }), false));
+      res.certos.slice().sort(porNome(function (x) { return x.g.nome; })).map(function (x) { return [x.g.nome, x.g.exec]; }), false, 'ok'));
 
     var linhasCsv = [['Situação', 'Cliente (gestão)', 'Executivo (gestão)', 'Cliente (planilha)', 'Executivo (planilha)']];
     res.divergentes.forEach(function (x) { linhasCsv.push(['Divergente', x.g.nome, x.g.exec, x.p.nome, x.p.exec]); });

@@ -209,11 +209,8 @@
     var topoIni = rolagem.scrollTop, esqIni = rolagem.scrollLeft;
     var mapa = {}, qtd = 0, exigirId = false;
 
-    var naTela = [];
     function varrer(abrangente) {
-      var vistas = linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true);
-      if (vistas.length) naTela = vistas;
-      vistas.forEach(function (l) {
+      linhasVisiveis(cab, rolagem, exigirId || abrangente, abrangente === true).forEach(function (l) {
         var k = l.id || norm(l.nome);
         if (!mapa[k]) qtd++;
         mapa[k] = l;
@@ -256,34 +253,34 @@
         if (!cresceu) break;
       }
     }
-    // sabemos quantos contatos são: se faltou, espera a Rubeus terminar de carregar (até 60 s) cutucando o fim da lista
-    var esperouS = 0;
+    // última tentativa: se faltou linha, rola TODAS as áreas roláveis da página até o fim e lê a tela inteira
     if (total && qtd < total) {
-      var rolaveis = [rolagem, document.scrollingElement || document.documentElement];
+      avisar('Conferindo o fim da lista... ' + qtd + ' de ' + total);
+      var rolaveis = [document.scrollingElement || document.documentElement];
       Array.prototype.forEach.call(document.querySelectorAll('*'), function (e) {
-        if (e === document.body || e === document.documentElement || rolaveis.indexOf(e) !== -1) return;
+        if (e === document.body || e === document.documentElement) return;
         var cs = getComputedStyle(e);
         if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 5) rolaveis.push(e);
       });
       var guardados = rolaveis.map(function (e) { return e.scrollTop; });
-      while (qtd < total && esperouS < 60) {
-        avisar('Esperando a Rubeus carregar o resto da lista... ' + qtd + ' de ' + total + ' (' + esperouS + 's)');
-        clicarMais();
+      for (var rep = 0; rep < 3 && qtd < total; rep++) {
         for (var q = 0; q < rolaveis.length; q++) {
           rolaveis[q].scrollTop = rolaveis[q].scrollHeight;
           try { rolaveis[q].dispatchEvent(new Event('scroll')); } catch (e) {}
+          await esperar(1200);
+          varrer(true);
         }
-        await esperar(1000);
-        esperouS++;
-        varrer(); varrer(true);
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        await esperar(1200);
+        varrer(true);
       }
       rolaveis.forEach(function (e, q) { e.scrollTop = guardados[q]; });
     }
     rolagem.scrollTop = topoIni; rolagem.scrollLeft = esqIni;
     var todas = Object.keys(mapa).map(function (k) { return mapa[k]; });
-    var ultimaTela = naTela.length ? naTela[naTela.length - 1] : null;
+    var ultima = todas.length ? todas[todas.length - 1] : null;
     var diag = 'rolagem: ' + (ehDoc ? 'página' : 'lista') + ' (altura ' + rolagem.scrollHeight + ', visível ' + rolagem.clientHeight + ')' +
-      ' · esperei ' + esperouS + 's · última linha vista na tela: ' + (ultimaTela ? ultimaTela.nome.slice(0, 40) + ' [' + ultimaTela.id + ']' : '-');
+      (ultima ? ' · última linha lida: ' + ultima.nome.slice(0, 40) + ' [' + ultima.id + ']' : '');
     return { linhas: todas, total: total, diag: diag };
   }
 

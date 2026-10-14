@@ -136,7 +136,8 @@
     console.log('Fim. ' + (teste ? 'Seriam acrescentados: ' + relatorio.filter(function (l) { return l[7] === 'seria acrescentado'; }).length : 'Acrescentados: ' + total.acrescentados) +
       ' | já estavam: ' + total.jaEstavam + ' | clientes sem registro em Fichas: ' + total.semFicha + ' | sem registro na gestão: ' + total.semGestao + ' | erros: ' + total.erros);
     if (pendentes.length) console.log('Para refazer só os que tiveram problema: fichaSincronizar({ teste: false, clientes: ' + JSON.stringify(pendentes) + ', refazer: ' + JSON.stringify(pendentes) + ' })');
-    if (relatorio.length) baixar('sincronizar-vinculos-' + (teste ? 'teste-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv', relatorio);
+    if (relatorio.length && !opcoes.semRelatorio) baixar('sincronizar-vinculos-' + (teste ? 'teste-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv', relatorio);
+    return { acrescentados: total.acrescentados, jaEstavam: total.jaEstavam, semFicha: total.semFicha, erros: total.erros, pendentes: pendentes };
   };
 
   window.fichaSincronizarZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };

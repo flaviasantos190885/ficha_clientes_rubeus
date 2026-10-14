@@ -242,7 +242,7 @@
     var teste = opcoes.teste !== false;
     if (CONFIG.token.indexOf('COLE_') === 0) { console.error('Token não configurado.'); return; }
     if (!teste && !CONFIG.eventoAtualizaLink) { console.error('Falta o tipo de evento que atualiza o registro (eventoAtualizaLink).'); return; }
-    var lista = opcoes.clientes ? CLIENTES.filter(function (c) { return opcoes.clientes.map(String).indexOf(c.p) !== -1; }) : CLIENTES;
+    var lista = opcoes.clientes ? opcoes.clientes.map(String).map(function (id) { return CLIENTES.filter(function (c) { return c.p === id; })[0] || { p: id }; }) : CLIENTES;
     var limite = opcoes.limite || lista.length;
     var progresso = lerProgresso();
     var relatorio = [], pendentes = [], feitos = 0;
@@ -275,7 +275,8 @@
       await esperar(CONFIG.pausaMs);
     }
     console.log('Fim.' + (pendentes.length ? ' Com problema: ' + pendentes.length + '. Para refazer: fichaAtualizarLinks({ teste: false, clientes: ' + JSON.stringify(pendentes) + ', refazer: ' + JSON.stringify(pendentes) + ' })' : ''));
-    if (relatorio.length) baixar('links-fichas-' + (teste ? 'teste-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv', relatorio);
+    if (relatorio.length && !opcoes.semRelatorio) baixar('links-fichas-' + (teste ? 'teste-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.csv', relatorio);
+    return { pendentes: pendentes, linhas: relatorio };
   };
 
   window.fichaAtualizarLinksZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };

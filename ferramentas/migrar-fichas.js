@@ -366,12 +366,13 @@
     console.log('Cliente ' + idCliente + ': registros na gestão: ' + (sit.registros.join(', ') || 'nenhum') + ' | fichas que já existem: ' + (sit.fichas.join(', ') || 'nenhuma'));
     if (sit.fichas.length && !opcoes.forcar) {
       console.warn('Este cliente já tem ficha. Para criar outra mesmo assim: fichaMigrarCliente(\'' + idCliente + '\', { forcar: true })');
-      return;
+      return { situacao: 'ja_tem', registro: sit.fichas[0] };
     }
-    if (!sit.registros.length) { console.warn('Este cliente não tem registro no processo de gestão.'); return; }
+    if (!sit.registros.length) { console.warn('Este cliente não tem registro no processo de gestão.'); return { situacao: 'sem_gestao' }; }
     var feito = await enviarCliente({ p: idCliente, r: sit.registros, c: opcoes.cidade }, opcoes.teste === true);
-    if (!feito.res) { console.log('[TESTE] nada foi criado. Link da ficha:', feito.prep.link); return; }
+    if (!feito.res) { console.log('[TESTE] nada foi criado. Link da ficha:', feito.prep.link); return { situacao: 'teste' }; }
     console.log('Pronto: ' + feito.prep.pj.nome + ' -> ' + (feito.res.registro ? 'registro ' + feito.res.registro : 'evento aceito (o fluxo cria o registro)'));
+    return { situacao: 'criado', registro: feito.res.registro, nome: feito.prep.pj.nome };
   };
 
   window.fichaMigracaoZerar = function () { localStorage.removeItem(CHAVE); console.log('Progresso apagado.'); };
